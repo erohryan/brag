@@ -13,6 +13,7 @@ export default function JobView({ id }) {
   const [voices, setVoices] = useState([]);
   const [newVoice, setNewVoice] = useState('');
   const [previewing, setPreviewing] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
   const logRef = useRef(null);
 
@@ -58,10 +59,14 @@ export default function JobView({ id }) {
 
   function preview() {
     if (!newVoice) return;
+    setVoiceError('');
     setPreviewing(true);
     previewVoice(newVoice, {
       onEnd: () => setPreviewing(false),
-      onError: () => setPreviewing(false),
+      onError: (msg) => {
+        setPreviewing(false);
+        setVoiceError(msg);
+      },
     });
   }
 
@@ -207,6 +212,7 @@ export default function JobView({ id }) {
               {rebuilding ? 'Starting…' : 'Rebuild with this voice'}
             </button>
           </div>
+          {voiceError && <div className="err">{voiceError}</div>}
         </div>
       )}
 

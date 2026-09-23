@@ -27,6 +27,7 @@ export default function UploadForm() {
   const [voice, setVoice] = useState('af_heart');
   const [voices, setVoices] = useState([]);
   const [previewing, setPreviewing] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,10 +43,14 @@ export default function UploadForm() {
   }, []);
 
   function preview() {
+    setVoiceError('');
     setPreviewing(true);
     previewVoice(voice, {
       onEnd: () => setPreviewing(false),
-      onError: () => setPreviewing(false),
+      onError: (msg) => {
+        setPreviewing(false);
+        setVoiceError(msg);
+      },
     });
   }
 
@@ -156,6 +161,7 @@ export default function UploadForm() {
           </button>
         </div>
       )}
+      {narration && voiceError && <div className="err">{voiceError}</div>}
 
       <div className="actions">
         <button className="btn" type="submit" disabled={!file || submitting}>

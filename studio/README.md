@@ -13,6 +13,14 @@ Generation happens locally through the agent, so this machine needs everything `
 - The **`brag` and `brag-docs` skills installed** (globally in `~/.claude/skills/` is easiest — see the repo root README)
 - **FFmpeg** on `PATH`
 - **Hyperframes CLI** — `npx hyperframes doctor`
+- **For narration/voices** — Kokoro TTS runs through Python: **Python 3.10+** with `kokoro-onnx` + `soundfile`:
+  ```bash
+  # use a Python 3.10+ interpreter (macOS default python3 is often 3.9, which won't work)
+  python3.13 -m pip install kokoro-onnx soundfile
+  # then point Hyperframes at that interpreter when running studio:
+  export HYPERFRAMES_PYTHON="$(which python3.13)"
+  ```
+  The dashboard shows a banner and the preview buttons report an error if this isn't set up. Without it, videos still generate — just without voiceover.
 
 ## Run
 

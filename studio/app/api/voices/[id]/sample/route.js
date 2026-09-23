@@ -30,7 +30,7 @@ export async function GET(_request, { params }) {
     try {
       await job;
     } catch (err) {
-      return new Response('TTS failed: ' + (err?.message || err), { status: 500 });
+      return new Response(err?.message || 'Speech synthesis failed', { status: 503 });
     }
   }
 
