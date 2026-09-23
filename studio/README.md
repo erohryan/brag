@@ -28,6 +28,14 @@ For a production build:
 npm run build && npm start
 ```
 
+## Narration voices
+
+Narration uses **Kokoro-82M** locally via `hyperframes tts` — 12 voices are surfaced in the UI (Heart, Nova, Sky, Adam, Michael, Emma, Isabella, George, plus Spanish/French/Japanese/Chinese voices).
+
+- **Trial any voice** — the "Try the narration voices" section on the dashboard plays a spoken sample for each. Samples are synthesized once and cached under `data/voice-samples/`. (The very first sample triggers a one-time Kokoro model download, so it can take a bit; after that they're instant.)
+- **Pick a voice for a new video** — turn narration on in the upload form and choose a voice (with an inline preview) before generating.
+- **Swap the voice on an existing video** — open any finished video and use the **Voice** panel to pick a different voice and *Rebuild with this voice*. The rebuild keeps the same visuals, structure, and script — it only regenerates the voiceover, re-times to the new audio, and re-renders. If the original had no narration, rebuilding adds it.
+
 ## How it works
 
 - **Upload** → `POST /api/jobs` saves the file under `data/jobs/<id>/input/` and spawns:
@@ -49,6 +57,7 @@ Everything lives under `studio/data/` (gitignored): uploaded documents, per-job 
 | Env var | Default | Purpose |
 |---|---|---|
 | `BRAG_CLAUDE_BIN` | `claude` | Path to the Claude Code CLI used for headless generation |
+| `BRAG_HYPERFRAMES_BIN` | `npx hyperframes` | Path to the Hyperframes CLI used for voice-sample synthesis |
 
 ## Notes & limits (MVP)
 

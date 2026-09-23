@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { previewVoice } from './voicePreview.js';
 
 const TONES = [
   'polished',
@@ -23,8 +24,30 @@ export default function UploadForm() {
   const [tone, setTone] = useState('polished');
   const [format, setFormat] = useState('landscape');
   const [narration, setNarration] = useState(false);
+  const [voice, setVoice] = useState('af_heart');
+  const [voices, setVoices] = useState([]);
+  const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/voices')
+      .then((r) => r.json())
+      .then((d) => alive && setVoices(d.voices || []))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function preview() {
+    setPreviewing(true);
+    previewVoice(voice, {
+      onEnd: () => setPreviewing(false),
+      onError: () => setPreviewing(false),
+    });
+  }
 
   function pick(f) {
     if (f) setFile(f);
@@ -41,6 +64,7 @@ export default function UploadForm() {
       fd.append('tone', tone);
       fd.append('format', format);
       fd.append('narration', narration ? 'on' : 'off');
+      fd.append('voice', voice);
       const res = await fetch('/api/jobs', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -114,6 +138,24 @@ export default function UploadForm() {
           </label>
         </div>
       </div>
+
+      {narration && (
+        <div className="voicerow">
+          <div className="field">
+            <label>Voice</label>
+            <select value={voice} onChange={(e) => setVoice(e.target.value)}>
+              {voices.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name} — {v.lang} ({v.gender})
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
+            {previewing ? <span className="spinner" /> : '▶'} Preview
+          </button>
+        </div>
+      )}
 
       <div className="actions">
         <button className="btn" type="submit" disabled={!file || submitting}>

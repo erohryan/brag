@@ -2,13 +2,26 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { previewVoice } from './voicePreview.js';
 
 const TERMINAL = new Set(['done', 'failed']);
 
 export default function JobView({ id }) {
   const [job, setJob] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [voices, setVoices] = useState([]);
+  const [newVoice, setNewVoice] = useState('');
+  const [previewing, setPreviewing] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
   const logRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/voices')
+      .then((r) => r.json())
+      .then((d) => setVoices(d.voices || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -36,7 +49,42 @@ export default function JobView({ id }) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [id]);
+  }, [id, tick]);
+
+  // Default the "new voice" selector to the job's current voice once known.
+  useEffect(() => {
+    if (job && !newVoice) setNewVoice(job.voice || 'af_heart');
+  }, [job, newVoice]);
+
+  function preview() {
+    if (!newVoice) return;
+    setPreviewing(true);
+    previewVoice(newVoice, {
+      onEnd: () => setPreviewing(false),
+      onError: () => setPreviewing(false),
+    });
+  }
+
+  async function rebuild() {
+    if (!newVoice || rebuilding) return;
+    setRebuilding(true);
+    try {
+      const res = await fetch(`/api/jobs/${id}/revoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: newVoice }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Rebuild failed');
+      // Optimistically flip to running and restart polling.
+      setJob((j) => (j ? { ...j, status: 'running', voice: newVoice } : j));
+      setTick((t) => t + 1);
+    } catch (err) {
+      alert(err.message || 'Rebuild failed');
+    } finally {
+      setRebuilding(false);
+    }
+  }
 
   // Keep the log scrolled to the newest line while running.
   useEffect(() => {
@@ -81,7 +129,11 @@ export default function JobView({ id }) {
         </span>
         <span className="badge">{job.tone}</span>
         <span className="badge">{job.format}</span>
-        <span className="badge">{job.narration ? 'narration on' : 'no narration'}</span>
+        <span className="badge">
+          {job.narration
+            ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voice || 'default'}`
+            : 'no narration'}
+        </span>
         {job.docRel && (
           <a className="badge" href={`/api/files/${job.docRel}`} target="_blank" rel="noreferrer">
             source document ↗
@@ -126,6 +178,35 @@ export default function JobView({ id }) {
             See the log below for details. Common causes: the brag-docs skill or
             Hyperframes CLI isn&apos;t installed/authed on this machine.
           </p>
+        </div>
+      )}
+
+      {!running && (
+        <div className="revoice card">
+          <h2 style={{ marginTop: 0 }}>Voice</h2>
+          <p className="hint" style={{ color: 'var(--muted)', marginTop: 0 }}>
+            {job.narration
+              ? 'Swap the narration voice and rebuild — the visuals and script stay the same.'
+              : 'This video has no narration. Pick a voice to add one and rebuild.'}
+          </p>
+          <div className="voicerow">
+            <div className="field">
+              <label>New voice</label>
+              <select value={newVoice} onChange={(e) => setNewVoice(e.target.value)}>
+                {voices.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} — {v.lang} ({v.gender})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
+              {previewing ? <span className="spinner" /> : '▶'} Preview
+            </button>
+            <button type="button" className="btn" onClick={rebuild} disabled={rebuilding}>
+              {rebuilding ? 'Starting…' : 'Rebuild with this voice'}
+            </button>
+          </div>
         </div>
       )}
 

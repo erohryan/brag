@@ -3,6 +3,7 @@ import path from 'node:path';
 import { listJobs, upsertJob } from '../../../lib/store.js';
 import { startJob } from '../../../lib/jobs.js';
 import { jobDirFor } from '../../../lib/paths.js';
+import { voiceById, DEFAULT_VOICE } from '../../../lib/voices.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,7 @@ export async function POST(request) {
   const tone = (form.get('tone') || 'polished').toString();
   const format = (form.get('format') || 'landscape').toString();
   const narration = (form.get('narration') || 'off').toString() === 'on';
+  const voice = voiceById((form.get('voice') || '').toString())?.id || DEFAULT_VOICE;
 
   const id = makeId();
   const filename = sanitizeName(file.name);
@@ -52,6 +54,7 @@ export async function POST(request) {
     tone,
     format,
     narration,
+    voice,
     status: 'queued',
     createdAt: Date.now(),
     docRel: `jobs/${id}/input/${filename}`,
