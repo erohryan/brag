@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewVoice } from './voicePreview.js';
+import VoiceSelect from './VoiceSelect.jsx';
+import { SPEED } from '../lib/voices.js';
 
 const TONES = [
   'polished',
@@ -25,6 +27,7 @@ export default function UploadForm() {
   const [format, setFormat] = useState('landscape');
   const [narration, setNarration] = useState(false);
   const [voice, setVoice] = useState('af_heart');
+  const [speed, setSpeed] = useState(SPEED.default);
   const [voices, setVoices] = useState([]);
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
@@ -70,6 +73,7 @@ export default function UploadForm() {
       fd.append('format', format);
       fd.append('narration', narration ? 'on' : 'off');
       fd.append('voice', voice);
+      fd.append('speed', String(speed));
       const res = await fetch('/api/jobs', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -145,23 +149,30 @@ export default function UploadForm() {
       </div>
 
       {narration && (
-        <div className="voicerow">
-          <div className="field">
-            <label>Voice</label>
-            <select value={voice} onChange={(e) => setVoice(e.target.value)}>
-              {voices.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} — {v.lang} ({v.gender})
-                </option>
-              ))}
-            </select>
+        <>
+          <div className="voicerow">
+            <div className="field">
+              <label>Voice ({voices.length} available)</label>
+              <VoiceSelect voices={voices} value={voice} onChange={(e) => setVoice(e.target.value)} />
+            </div>
+            <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
+              {previewing ? <span className="spinner" /> : '▶'} Preview
+            </button>
           </div>
-          <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
-            {previewing ? <span className="spinner" /> : '▶'} Preview
-          </button>
-        </div>
+          <div className="field" style={{ marginTop: 14, maxWidth: 320 }}>
+            <label>Speed — {speed.toFixed(2)}×</label>
+            <input
+              type="range"
+              min={SPEED.min}
+              max={SPEED.max}
+              step={SPEED.step}
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            />
+          </div>
+          {voiceError && <div className="err">{voiceError}</div>}
+        </>
       )}
-      {narration && voiceError && <div className="err">{voiceError}</div>}
 
       <div className="actions">
         <button className="btn" type="submit" disabled={!file || submitting}>

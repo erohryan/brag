@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { previewVoice } from './voicePreview.js';
+import VoiceSelect from './VoiceSelect.jsx';
+import { SPEED } from '../lib/voices.js';
 
 const TERMINAL = new Set(['done', 'failed']);
 
@@ -12,6 +14,7 @@ export default function JobView({ id }) {
   const [tick, setTick] = useState(0);
   const [voices, setVoices] = useState([]);
   const [newVoice, setNewVoice] = useState('');
+  const [newSpeed, setNewSpeed] = useState(SPEED.default);
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
@@ -54,7 +57,10 @@ export default function JobView({ id }) {
 
   // Default the "new voice" selector to the job's current voice once known.
   useEffect(() => {
-    if (job && !newVoice) setNewVoice(job.voice || 'af_heart');
+    if (job && !newVoice) {
+      setNewVoice(job.voice || 'af_heart');
+      if (job.speed) setNewSpeed(job.speed);
+    }
   }, [job, newVoice]);
 
   function preview() {
@@ -77,12 +83,12 @@ export default function JobView({ id }) {
       const res = await fetch(`/api/jobs/${id}/revoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: newVoice }),
+        body: JSON.stringify({ voice: newVoice, speed: newSpeed }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Rebuild failed');
       // Optimistically flip to running and restart polling.
-      setJob((j) => (j ? { ...j, status: 'running', voice: newVoice } : j));
+      setJob((j) => (j ? { ...j, status: 'running', voice: newVoice, speed: newSpeed } : j));
       setTick((t) => t + 1);
     } catch (err) {
       alert(err.message || 'Rebuild failed');
@@ -196,14 +202,8 @@ export default function JobView({ id }) {
           </p>
           <div className="voicerow">
             <div className="field">
-              <label>New voice</label>
-              <select value={newVoice} onChange={(e) => setNewVoice(e.target.value)}>
-                {voices.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} — {v.lang} ({v.gender})
-                  </option>
-                ))}
-              </select>
+              <label>New voice ({voices.length} available)</label>
+              <VoiceSelect voices={voices} value={newVoice} onChange={(e) => setNewVoice(e.target.value)} />
             </div>
             <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
               {previewing ? <span className="spinner" /> : '▶'} Preview
@@ -211,6 +211,17 @@ export default function JobView({ id }) {
             <button type="button" className="btn" onClick={rebuild} disabled={rebuilding}>
               {rebuilding ? 'Starting…' : 'Rebuild with this voice'}
             </button>
+          </div>
+          <div className="field" style={{ marginTop: 14, maxWidth: 320 }}>
+            <label>Speed — {newSpeed.toFixed(2)}×</label>
+            <input
+              type="range"
+              min={SPEED.min}
+              max={SPEED.max}
+              step={SPEED.step}
+              value={newSpeed}
+              onChange={(e) => setNewSpeed(Number(e.target.value))}
+            />
           </div>
           {voiceError && <div className="err">{voiceError}</div>}
         </div>

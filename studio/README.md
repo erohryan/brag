@@ -38,11 +38,15 @@ npm run build && npm start
 
 ## Narration voices
 
-Narration uses **Kokoro-82M** locally via `hyperframes tts` — 12 voices are surfaced in the UI (Heart, Nova, Sky, Adam, Michael, Emma, Isabella, George, plus Spanish/French/Japanese/Chinese voices).
+Narration uses **Kokoro-82M** locally via `hyperframes tts` — all **54 voices** across 9 languages (American/British English, Spanish, French, Italian, Portuguese, Hindi, Japanese, Chinese) are available, grouped by language in the UI, plus a **speed** control.
 
 - **Trial any voice** — the "Try the narration voices" section on the dashboard plays a spoken sample for each. Samples are synthesized once and cached under `data/voice-samples/`. (The very first sample triggers a one-time Kokoro model download, so it can take a bit; after that they're instant.)
-- **Pick a voice for a new video** — turn narration on in the upload form and choose a voice (with an inline preview) before generating.
-- **Swap the voice on an existing video** — open any finished video and use the **Voice** panel to pick a different voice and *Rebuild with this voice*. The rebuild keeps the same visuals, structure, and script — it only regenerates the voiceover, re-times to the new audio, and re-renders. If the original had no narration, rebuilding adds it.
+- **Pick a voice + speed for a new video** — turn narration on in the upload form, choose a voice (with an inline preview) and a speech speed before generating.
+- **Swap the voice on an existing video** — open any finished video and use the **Voice** panel to pick a different voice/speed and *Rebuild with this voice*. The rebuild keeps the same visuals, structure, and script — it only regenerates the voiceover, re-times to the new audio, and re-renders. If the original had no narration, rebuilding adds it.
+
+### More natural voices (planned)
+
+Kokoro is fast, free, and local, but it's an 82M model — good, not the most natural. The planned upgrade is a cloud provider (**ElevenLabs**) selectable per video. The seam is `lib/tts.js` (`runTts`): add an ElevenLabs branch that produces a WAV from text + voice id, tag those voices with a `provider` field, and the rest of the app — preview, selection, revoice — already works unchanged.
 
 ## How it works
 

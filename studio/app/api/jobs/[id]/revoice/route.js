@@ -1,6 +1,6 @@
 import { getJob } from '../../../../../lib/store.js';
 import { startRevoice, isRunning } from '../../../../../lib/jobs.js';
-import { voiceById } from '../../../../../lib/voices.js';
+import { voiceById, clampSpeed } from '../../../../../lib/voices.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,7 @@ export async function POST(request, { params }) {
     return Response.json({ error: 'A build is already in progress for this job' }, { status: 409 });
   }
 
-  startRevoice(rec, v.id);
-  return Response.json({ ok: true, voice: v.id });
+  const speed = body.speed != null ? clampSpeed(body.speed) : rec.speed;
+  startRevoice(rec, v.id, speed);
+  return Response.json({ ok: true, voice: v.id, speed });
 }

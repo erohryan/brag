@@ -445,3 +445,18 @@ input[type='text'] {
 .revoice {
   margin-top: 26px;
 }
+.voicelang {
+  margin-bottom: 18px;
+}
+.voicelang-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}

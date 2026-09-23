@@ -38,6 +38,34 @@ export default function VoiceGallery() {
 
   if (voices.length === 0) return null;
 
+  // Group by language, preserving langOrder.
+  const order = [];
+  const byLang = new Map();
+  for (const v of voices) {
+    if (!byLang.has(v.lang)) {
+      byLang.set(v.lang, []);
+      order.push({ lang: v.lang, order: v.langOrder ?? 99 });
+    }
+    byLang.get(v.lang).push(v);
+  }
+  order.sort((a, b) => a.order - b.order);
+
+  const card = (v) => (
+    <button
+      key={v.id}
+      type="button"
+      className="voicecard"
+      onClick={() => play(v.id)}
+      aria-label={`Preview ${v.name}`}
+    >
+      <span className="vname">
+        {active === v.id ? <span className="spinner" /> : <span className="play">▶</span>}
+        {v.name}
+      </span>
+      <span className="vmeta">{v.gender}</span>
+    </button>
+  );
+
   return (
     <div>
       {health && !health.ok && (
@@ -45,25 +73,12 @@ export default function VoiceGallery() {
           <strong>Voice narration isn&apos;t available yet.</strong> {health.reason}
         </div>
       )}
-      <div className="voicegrid">
-        {voices.map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            className="voicecard"
-            onClick={() => play(v.id)}
-            aria-label={`Preview ${v.name}`}
-          >
-            <span className="vname">
-              {active === v.id ? <span className="spinner" /> : <span className="play">▶</span>}
-              {v.name}
-            </span>
-            <span className="vmeta">
-              {v.lang} · {v.gender}
-            </span>
-          </button>
-        ))}
-      </div>
+      {order.map((g) => (
+        <div key={g.lang} className="voicelang">
+          <div className="voicelang-label">{g.lang}</div>
+          <div className="voicegrid">{byLang.get(g.lang).map(card)}</div>
+        </div>
+      ))}
       {error && <div className="err">{error}</div>}
     </div>
   );

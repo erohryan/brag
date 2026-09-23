@@ -15,8 +15,9 @@ export default function HomePage() {
 
       <h2>Try the narration voices</h2>
       <p className="lede" style={{ marginBottom: 16 }}>
-        Click any voice to hear a sample. Pick one when you turn narration on for a
-        new video — or swap it on an existing one and rebuild.
+        54 voices across 9 languages. Click any to hear a sample. Pick one (and a
+        speed) when you turn narration on for a new video — or swap it on an
+        existing one and rebuild.
       </p>
       <VoiceGallery />
 

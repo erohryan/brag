@@ -51,8 +51,9 @@ function buildPrompt(rec) {
   ];
   if (rec.narration) {
     const v = voiceById(rec.voice);
+    const speedFlag = rec.speed && rec.speed !== 1 ? ` --speed ${rec.speed}` : '';
     lines.push(
-      `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}\` to \`hyperframes tts\`. Do not ask about narration.`,
+      `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}${speedFlag}\` to \`hyperframes tts\`. Do not ask about narration.`,
     );
   } else {
     lines.push(`- Narration: off (no voice); do not ask about narration.`);
@@ -65,14 +66,15 @@ function buildPrompt(rec) {
   return lines.join('\n');
 }
 
-function buildRevoicePrompt(rec, voiceId) {
+function buildRevoicePrompt(rec, voiceId, speed) {
   const v = voiceById(voiceId);
+  const speedFlag = speed && speed !== 1 ? ` --speed ${speed}` : '';
   return [
     `Use the brag-docs skill to REBUILD the narration of an existing video with a different voice. Do NOT replan or restyle the visuals.`,
     `This is an automated, non-interactive run. Do NOT ask me any questions.`,
     `The working directory already contains the previous run under brag-docs-output/ (its composition/ and brag-plan.md).`,
     `Do this:`,
-    `- Regenerate the voiceover from the existing narration script using the Kokoro voice "${voiceId}"${v ? ` (${v.name})` : ''}: run \`hyperframes tts\` with \`--voice ${voiceId}\`, overwriting the composition's existing voiceover asset (e.g. brag-docs-output/composition/assets/voiceover.wav).`,
+    `- Regenerate the voiceover from the existing narration script using the Kokoro voice "${voiceId}"${v ? ` (${v.name})` : ''}: run \`hyperframes tts\` with \`--voice ${voiceId}${speedFlag}\`, overwriting the composition's existing voiceover asset (e.g. brag-docs-output/composition/assets/voiceover.wav).`,
     `- Adjust scene/clip timing to the new audio duration so the narration stays in sync.`,
     `- Re-render to brag-docs-output/brag.mp4 and refresh the poster brag-docs-output/brag.jpg.`,
     `Keep the same visuals, structure, and share copy.`,
@@ -197,12 +199,13 @@ export function startJob(rec) {
   runAgent(rec, buildPrompt(rec), 'Starting brag-docs…');
 }
 
-export function startRevoice(rec, voiceId) {
+export function startRevoice(rec, voiceId, speed) {
   // Keep the existing video visible until the rebuild succeeds; only flip voice
   // + narration now, and let finish() swap in the new render on success.
   const updated = { ...rec, voice: voiceId, narration: true, error: undefined };
+  if (speed) updated.speed = speed;
   upsertJob(updated);
-  runAgent(updated, buildRevoicePrompt(updated, voiceId), `Rebuilding with voice ${voiceId}…`);
+  runAgent(updated, buildRevoicePrompt(updated, voiceId, updated.speed), `Rebuilding with voice ${voiceId}…`);
 }
 
 function runAgent(rec, prompt, startMessage) {
