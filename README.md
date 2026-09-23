@@ -14,6 +14,10 @@ The looping video on the [launch site](https://latent-spaces.github.io/brag/) wa
 - **`/brag-strategy`** — the brain. Understands your product **feature by feature**, maps the **customer outcome** each one drives, adds light **current-market framing**, then proposes a set of videos to make — you pick, it plans, and `/brag` renders each one. Built for shipping marketing content **steadily over time**, not a one-off promo.
 - **`/brag-docs`** — the explainer. Turns a **PDF, slide deck, or infographic** into an engaging informational video, reusing the document's own charts, images, and color scheme. Length adapts to the document; narration optional. See [`skills/brag-docs/SKILL.md`](skills/brag-docs/SKILL.md).
 
+### brag studio — a UI for brag-docs
+
+[`studio/`](studio/) is a local web app for `/brag-docs`: **upload a document, watch it become a video, and browse a searchable history** of everything you've made. It runs the `brag-docs` agent headlessly on your machine and streams progress into the page. Run it with `cd studio && npm install && npm run dev` (needs the skills, FFmpeg, and Hyperframes installed locally — see [`studio/README.md`](studio/README.md)).
+
 `/brag-strategy` keeps a persistent `brag-marketing/` workspace (a product profile, an asset inventory, a content plan, and a reusable asset repo) so the program compounds across runs. See [`skills/brag-strategy/SKILL.md`](skills/brag-strategy/SKILL.md).
 
 **Asset-first:** both skills prefer real assets you already have — logos, screenshots, existing footage — and recreate UI only to fill gaps.
@@ -115,6 +119,7 @@ You get a `brag-output/` folder with the plan, a composition brief, share copy, 
 - `skills/brag/` — the render engine, references, and bundled music + SFX
 - `skills/brag-strategy/` — the marketing-program planner (feature understanding → outcomes → market framing → content plan)
 - `skills/brag-docs/` — the document explainer (PDF / deck / infographic → informational video; reuses the brag engine)
+- `studio/` — local web UI for `brag-docs` (upload → generate → searchable video library)
 - `examples/` — fake product sites used as a benchmark suite
 - `docs/` — the launch site (GitHub Pages)
 - `.claude-plugin/` — plugin manifest + marketplace catalog
