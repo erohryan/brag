@@ -137,10 +137,11 @@ Two failure modes to design out at the plan stage:
 
 Every brag video must show something real from the product. Options, in preferred order:
 
-1. **Recreate a working-app moment** — the upload screen, the result view, the dashboard with real-looking content. Use real source from `app/`, `pages/`, or routed components — not just the landing page. This is the most compelling option whenever the product has a flow. The product *doing* its thing beats the product *describing* its thing.
-2. **Recreate a UI element in HTML** — a hero card, swipe UI, progress meter, stat block. Strong when there is no flow to show.
-3. **Animate the core concept** — if the product is "taxis for taxis", animate two taxis where one is in the other. Pure graphic but grounded in the idea.
-4. **Text-forward sequence** — if the product is copy-driven (Psychologists for Chatbots), let the copy be the visual. Giant display type, minimal chrome.
+1. **Reuse a real asset** — a real screenshot, product photo, logo, or existing footage/screen recording found in Step 1 (or, in feature-brief mode, mapped to this feature in `brag-marketing/asset-inventory.md`). For marketing content this is the strongest option: real assets read as authentic and cost nothing to fabricate. Recreate only to fill a gap the assets don't cover.
+2. **Recreate a working-app moment** — the upload screen, the result view, the dashboard with real-looking content. Use real source from `app/`, `pages/`, or routed components — not just the landing page. The product *doing* its thing beats the product *describing* its thing. Use this when no real asset captures the moment.
+3. **Recreate a UI element in HTML** — a hero card, swipe UI, progress meter, stat block. Strong when there is no asset and no flow to show.
+4. **Animate the core concept** — if the product is "taxis for taxis", animate two taxis where one is in the other. Pure graphic but grounded in the idea.
+5. **Text-forward sequence** — if the product is copy-driven (Psychologists for Chatbots), let the copy be the visual. Giant display type, minimal chrome.
 
 Never fill scenes with abstract patterns, color washes, or generic motion graphics that could belong to any video.
 

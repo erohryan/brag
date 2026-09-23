@@ -25,7 +25,7 @@ Read these in priority order:
 
    Identify the 2–3 beats of *using* the product: **entry → key action → result.**
 
-7. **`public/` or `assets/`** — note any images, logos, icons. These can be referenced in the composition.
+7. **Reusable assets (prefer these over recreating).** Real assets beat rebuilt-in-HTML for marketing content. In **feature-brief mode**, read `brag-marketing/asset-inventory.md` — the sweep is already done; use the assets mapped to this feature. In **standalone mode**, sweep now: `public/`, `assets/`, `static/`, `docs/assets/`, `src/assets/` for logos, screenshots, product photos, illustrations, icons, and **existing motion** (`.mp4`, `.webm`, `.mov`, `.gif`, Lottie/animation JSON). Note each asset's path and which moment it can serve. Recreate a UI element only when no real asset covers it.
 
 ## The 9-question rubric
 

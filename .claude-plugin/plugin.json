@@ -1,7 +1,7 @@
 {
   "name": "brag",
-  "description": "Turn the current project into a short, polished, shareable launch video using HyperFrames.",
-  "version": "0.3.0",
+  "description": "Marketing-content engine: /brag renders a project (or one feature) into a short shareable video; /brag-strategy plans an ongoing program of feature-focused videos; /brag-docs turns PDFs, decks, and infographics into informational videos. Powered by HyperFrames.",
+  "version": "0.5.0",
   "author": {
     "name": "Shunit Haviv Hakimi",
     "email": "shunithaviv@gmail.com"
@@ -9,5 +9,5 @@
   "license": "MIT",
   "homepage": "https://github.com/latent-spaces/brag",
   "repository": "https://github.com/latent-spaces/brag",
-  "keywords": ["video", "launch", "hyperframes", "skill"]
+  "keywords": ["video", "launch", "marketing", "content", "strategy", "pdf", "slides", "infographic", "explainer", "hyperframes", "skill"]
 }

@@ -6,7 +6,17 @@
 
 `/brag` is a Claude Code skill that turns the project you created into a short, shareable launch video — music, motion, and share copy included. One command, powered by [Hyperframes](https://hyperframes.heygen.com/).
 
-The looping video on the [launch site](https://latent-spaces.github.io/brag/) was made by `/brag` on this very repo. 
+The looping video on the [launch site](https://latent-spaces.github.io/brag/) was made by `/brag` on this very repo.
+
+## Three skills: a video, a content program, or a document explainer
+
+- **`/brag`** — the engine. Turns a project (or one feature of it) into a single short video. Great on its own.
+- **`/brag-strategy`** — the brain. Understands your product **feature by feature**, maps the **customer outcome** each one drives, adds light **current-market framing**, then proposes a set of videos to make — you pick, it plans, and `/brag` renders each one. Built for shipping marketing content **steadily over time**, not a one-off promo.
+- **`/brag-docs`** — the explainer. Turns a **PDF, slide deck, or infographic** into an engaging informational video, reusing the document's own charts, images, and color scheme. Length adapts to the document; narration optional. See [`skills/brag-docs/SKILL.md`](skills/brag-docs/SKILL.md).
+
+`/brag-strategy` keeps a persistent `brag-marketing/` workspace (a product profile, an asset inventory, a content plan, and a reusable asset repo) so the program compounds across runs. See [`skills/brag-strategy/SKILL.md`](skills/brag-strategy/SKILL.md).
+
+**Asset-first:** both skills prefer real assets you already have — logos, screenshots, existing footage — and recreate UI only to fill gaps.
 
 ## Install
 
@@ -57,6 +67,22 @@ From any project directory, ask your agent:
 let's /brag
 ```
 
+To plan an ongoing content program instead of a single video:
+
+```text
+/brag-strategy
+```
+
+Blank, it surveys the whole product and pitches a top-5 of videos to make (one recommended). Focus it with a prompt — `/brag-strategy "the new export feature"` — to ideate on one theme. You pick which ideas to build; it writes a `brag-marketing/content-plan.md` and hands each choice to `/brag` to render into `brag-marketing/videos/<feature>/`.
+
+To turn a document into a video:
+
+```text
+/brag-docs report.pdf
+```
+
+Works on PDFs, PowerPoint/Keynote decks, and infographic images. It extracts the document's charts, images, colors, and fonts, then builds an informational video whose length matches the content. It asks whether to narrate, and if the document has no usable visuals it asks you for assets.
+
 Or steer the tone:
 
 ```text
@@ -86,13 +112,15 @@ You get a `brag-output/` folder with the plan, a composition brief, share copy, 
 
 ## What's in this repo
 
-- `skills/brag/` — the skill, references, and bundled music + SFX
+- `skills/brag/` — the render engine, references, and bundled music + SFX
+- `skills/brag-strategy/` — the marketing-program planner (feature understanding → outcomes → market framing → content plan)
+- `skills/brag-docs/` — the document explainer (PDF / deck / infographic → informational video; reuses the brag engine)
 - `examples/` — fake product sites used as a benchmark suite
 - `docs/` — the launch site (GitHub Pages)
 - `.claude-plugin/` — plugin manifest + marketplace catalog
-- `.claude/skills/brag/` — symlink → `skills/brag/` (Claude Code discovery)
-- `.agents/skills/brag/` — symlink → `skills/brag/` (Codex CLI + opencode discovery)
-- `.opencode/skills/brag/` — symlink → `skills/brag/` (opencode discovery)
+- `.claude/skills/{brag,brag-strategy,brag-docs}/` — symlinks → `skills/…` (Claude Code discovery)
+- `.agents/skills/{brag,brag-strategy,brag-docs}/` — symlinks → `skills/…` (Codex CLI + opencode discovery)
+- `.opencode/skills/{brag,brag-strategy,brag-docs}/` — symlinks → `skills/…` (opencode discovery)
 
 ## Credits
 

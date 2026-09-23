@@ -24,6 +24,20 @@ to the normal no-voice workflow.
 4. Hands a focused composition brief to Hyperframes.
 5. Validates, renders, and writes share copy.
 
+## Operating modes
+
+`/brag` runs in one of two modes. Detect which at the start of the run.
+
+**Feature-brief mode (part of a marketing program).** A `brag-marketing/` workspace exists (created by `/brag-strategy`), or the invocation names a feature/plan row (e.g. `/brag --feature export`). Render **one video for that one feature**, not the whole product:
+- Read `brag-marketing/product-profile.md`, `asset-inventory.md`, and the target row in `content-plan.md` first — they already hold the understanding, the customer outcome (the message), the tone, and the assets on hand. Do not re-derive what the workspace already knows.
+- Narrow inspection (Step 1) to the target feature.
+- Output to `brag-marketing/videos/<feature-slug>/` instead of `brag-output/`.
+- After delivery, flip the plan row from `planned`/`in-progress` to `done` and move it into the plan's Produced (history) section with the video path.
+
+**Standalone mode (one-shot, back-compat).** No workspace and no feature named → behave exactly as before: one video for the whole product, output to `brag-output/`. This keeps `/brag` usable on its own without `/brag-strategy`.
+
+When in doubt, check for `brag-marketing/` at the project root.
+
 ## Parsing the invocation
 
 The user may invoke with natural language or flags:
@@ -46,6 +60,7 @@ Parse these options:
 | `--no-sfx` | flag | sfx on |
 | `--title` | string | inferred from project |
 | `--voice` | flag | narration off |
+| `--feature` | feature-slug | none (whole product) — triggers feature-brief mode |
 
 Voice is opt-in. If `--voice` is present, use Kokoro via Hyperframes and do
 not add any provider-selection logic. The voice workflow is intentionally
@@ -67,7 +82,9 @@ separate narration track.
 
 ## Output directory
 
-By default, output goes to `brag-output/`. To avoid overwriting previous runs, use a timestamped directory:
+**Feature-brief mode:** output goes to `brag-marketing/videos/<feature-slug>/`. Do not timestamp — the feature-slug folder is the stable home for that feature's video, and re-rendering a feature replaces its folder (the plan history keeps the record).
+
+**Standalone mode:** output goes to `brag-output/`. To avoid overwriting previous runs, use a timestamped directory:
 
 ```
 brag-output-2026-05-04-143022/
