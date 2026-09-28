@@ -54,6 +54,8 @@ export const DEFAULT_VOICE = 'af_heart';
 export const SPEED = { min: 0.7, max: 1.4, step: 0.05, default: 1.0 };
 
 export function clampSpeed(v) {
+  // Missing values mean "default" — Number(null) is 0, which would clamp to min.
+  if (v === null || v === undefined || v === '') return SPEED.default;
   const n = Number(v);
   if (!Number.isFinite(n)) return SPEED.default;
   return Math.min(SPEED.max, Math.max(SPEED.min, n));

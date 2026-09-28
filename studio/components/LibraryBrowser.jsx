@@ -96,7 +96,9 @@ export default function LibraryBrowser({ compact = false }) {
               <div className="body">
                 <p className="t">{j.title || j.filename}</p>
                 <div className="sub">
-                  <span>{j.tone}</span>
+                  <span>
+                    {j.kind === 'idea' ? '✨ idea' : '📄 doc'} · {j.tone}
+                  </span>
                   <span>{fmtDate(j.createdAt)}</span>
                 </div>
               </div>

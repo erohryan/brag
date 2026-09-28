@@ -31,6 +31,8 @@ export function listJobs(q) {
         r.format,
         r.status,
         r.shareCopy,
+        r.prompt,
+        r.kind === 'idea' ? 'idea prompt' : 'document',
         new Date(r.createdAt || 0).toLocaleDateString(),
       ]
         .filter(Boolean)

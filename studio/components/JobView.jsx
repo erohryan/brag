@@ -147,10 +147,17 @@ export default function JobView({ id }) {
         </span>
         {job.docRel && (
           <a className="badge" href={`/api/files/${job.docRel}`} target="_blank" rel="noreferrer">
-            source document ↗
+            {job.kind === 'idea' ? 'prompt ↗' : 'source document ↗'}
           </a>
         )}
       </div>
+
+      {job.kind === 'idea' && job.prompt && (
+        <details className="promptcard" open={job.status !== 'done'}>
+          <summary>The idea{job.assets?.length ? ` · ${job.assets.length} brand asset${job.assets.length > 1 ? 's' : ''}` : ''}</summary>
+          <div className="sharecopy">{job.prompt}</div>
+        </details>
+      )}
 
       {job.status === 'done' && job.video && (
         <>

@@ -42,44 +42,69 @@ export function readProgress(id, limit = 400) {
   return out;
 }
 
+// Each job kind maps to the skill that renders it and that skill's output folder.
+const KINDS = {
+  docs: { skill: 'brag-docs', out: 'brag-docs-output', source: (rec) => `the document at "input/${rec.filename}"` },
+  idea: { skill: 'brag-idea', out: 'brag-idea-output', source: () => `the idea brief in "input/prompt.md"` },
+};
+const OUTPUT_PREFIXES = Object.values(KINDS).map((k) => k.out);
+
+function kindOf(rec) {
+  return KINDS[rec.kind] || KINDS.docs;
+}
+
+function narrationLine(rec) {
+  if (!rec.narration) return `- Narration: off (no voice); do not ask about narration.`;
+  const v = voiceById(rec.voice);
+  const speedFlag = rec.speed && rec.speed !== 1 ? ` --speed ${rec.speed}` : '';
+  return `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}${speedFlag}\` to \`hyperframes tts\`. Do not ask about narration.`;
+}
+
 function buildPrompt(rec) {
-  const lines = [
-    `Use the brag-docs skill to turn the document at "input/${rec.filename}" into an informational video.`,
-    `This is an automated, non-interactive run. Do NOT ask me any questions — proceed autonomously with these settings:`,
-    `- Format: ${rec.format}`,
-    `- Tone: ${rec.tone}`,
-  ];
-  if (rec.narration) {
-    const v = voiceById(rec.voice);
-    const speedFlag = rec.speed && rec.speed !== 1 ? ` --speed ${rec.speed}` : '';
-    lines.push(
-      `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}${speedFlag}\` to \`hyperframes tts\`. Do not ask about narration.`,
-    );
-  } else {
-    lines.push(`- Narration: off (no voice); do not ask about narration.`);
-  }
+  const k = kindOf(rec);
+  const lines =
+    rec.kind === 'idea'
+      ? [
+          `Use the brag-idea skill to turn ${k.source(rec)} into an animated promo video.`,
+          `This is an automated, non-interactive run. Do NOT ask me any questions — proceed autonomously and record every assumption in the plan. Settings:`,
+          `- Format: ${rec.format}`,
+          `- Tone: ${rec.tone}`,
+          narrationLine(rec),
+          rec.assets?.length
+            ? `- Assets: the user supplied brand assets in input/assets/ (${rec.assets.join(', ')}) — use them (treat as --assets input/assets).`
+            : `- Assets: none supplied — build conceptual visuals from the idea itself; do not imitate any real brand's marks.`,
+          `- Light research is allowed only to verify or sharpen factual claims; never invent statistics, testimonials, or logos.`,
+        ]
+      : [
+          `Use the brag-docs skill to turn ${k.source(rec)} into an informational video.`,
+          `This is an automated, non-interactive run. Do NOT ask me any questions — proceed autonomously with these settings:`,
+          `- Format: ${rec.format}`,
+          `- Tone: ${rec.tone}`,
+          narrationLine(rec),
+          `If the document lacks usable visuals or brand assets, do not wait for input — proceed with a clean neutral look and note it in the plan.`,
+        ];
   lines.push(
-    `- Output directory: brag-docs-output`,
-    `If the document lacks usable visuals or brand assets, do not wait for input — proceed with a clean neutral look and note it in the plan.`,
-    `When finished, make sure brag-docs-output/brag.mp4, brag-docs-output/brag.jpg, and brag-docs-output/share-copy.txt all exist.`,
+    `- Output directory: ${k.out}`,
+    `When finished, make sure ${k.out}/brag.mp4, ${k.out}/brag.jpg, and ${k.out}/share-copy.txt all exist.`,
   );
   return lines.join('\n');
 }
 
 function buildRevoicePrompt(rec, voiceId, speed) {
+  const k = kindOf(rec);
   const v = voiceById(voiceId);
   const speedFlag = speed && speed !== 1 ? ` --speed ${speed}` : '';
   return [
-    `Use the brag-docs skill to REBUILD the narration of an existing video with a different voice. Do NOT replan or restyle the visuals.`,
+    `Use the ${k.skill} skill to REBUILD the narration of an existing video with a different voice. Do NOT replan or restyle the visuals.`,
     `This is an automated, non-interactive run. Do NOT ask me any questions.`,
-    `The working directory already contains the previous run under brag-docs-output/ (its composition/ and brag-plan.md).`,
+    `The working directory already contains the previous run under ${k.out}/ (its composition/ and brag-plan.md).`,
     `Do this:`,
-    `- Regenerate the voiceover from the existing narration script using the Kokoro voice "${voiceId}"${v ? ` (${v.name})` : ''}: run \`hyperframes tts\` with \`--voice ${voiceId}${speedFlag}\`, overwriting the composition's existing voiceover asset (e.g. brag-docs-output/composition/assets/voiceover.wav).`,
+    `- Regenerate the voiceover from the existing narration script using the Kokoro voice "${voiceId}"${v ? ` (${v.name})` : ''}: run \`hyperframes tts\` with \`--voice ${voiceId}${speedFlag}\`, overwriting the composition's existing voiceover asset (e.g. ${k.out}/composition/assets/voiceover.wav).`,
     `- Adjust scene/clip timing to the new audio duration so the narration stays in sync.`,
-    `- Re-render to brag-docs-output/brag.mp4 and refresh the poster brag-docs-output/brag.jpg.`,
+    `- Re-render to ${k.out}/brag.mp4 and refresh the poster ${k.out}/brag.jpg.`,
     `Keep the same visuals, structure, and share copy.`,
-    `If narration was previously OFF or there is no existing composition, instead do a full brag-docs run of the document at "input/${rec.filename}" with narration ON using voice "${voiceId}" (format ${rec.format}, tone ${rec.tone}).`,
-    `Ensure brag-docs-output/brag.mp4 and brag-docs-output/brag.jpg exist when done.`,
+    `If narration was previously OFF or there is no existing composition, instead do a full ${k.skill} run of ${k.source(rec)} with narration ON using voice "${voiceId}" (format ${rec.format}, tone ${rec.tone}).`,
+    `Ensure ${k.out}/brag.mp4 and ${k.out}/brag.jpg exist when done.`,
   ].join('\n');
 }
 
@@ -144,7 +169,7 @@ function statMtime(p) {
 function parseTitle(md) {
   const m = /^#\s+(.+)$/m.exec(md);
   if (!m) return '';
-  return m[1].replace(/^Brag-?Docs Plan:\s*/i, '').trim();
+  return m[1].replace(/^Brag-?(Docs|Idea) Plan:\s*/i, '').trim();
 }
 
 function toRel(p) {
@@ -159,7 +184,7 @@ function findOutput(dir) {
     return null;
   }
   const outDirs = entries
-    .filter((e) => e.isDirectory() && e.name.startsWith('brag-docs-output'))
+    .filter((e) => e.isDirectory() && OUTPUT_PREFIXES.some((p) => e.name.startsWith(p)))
     .map((e) => path.join(dir, e.name))
     .sort((a, b) => statMtime(b) - statMtime(a));
 

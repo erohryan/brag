@@ -1,8 +1,8 @@
 # brag studio
 
-A local web UI for **`brag-docs`**: upload a document (PDF, PowerPoint/Keynote, or infographic), watch it become an informational video, and browse a searchable history of everything you've made.
+A local web UI for **`brag-docs`** and **`brag-idea`**: upload a document (PDF, PowerPoint/Keynote, or infographic) or describe an idea in a prompt, watch it become a video, and browse a searchable history of everything you've made.
 
-It's a thin, self-contained Next.js app. When you upload a document it runs the `brag-docs` skill **headlessly** on your machine (via `claude -p`), streams progress into the page, and shows the finished video when the render completes.
+It's a thin, self-contained Next.js app. When you start a job it runs the matching skill **headlessly** on your machine (via `claude -p`), streams progress into the page, and shows the finished video when the render completes.
 
 ## Requirements
 
@@ -10,7 +10,7 @@ Generation happens locally through the agent, so this machine needs everything `
 
 - **Node.js 22+**
 - **Claude Code CLI** on `PATH` (`claude`), signed in
-- The **`brag` and `brag-docs` skills installed** (globally in `~/.claude/skills/` is easiest — see the repo root README)
+- The **`brag`, `brag-docs`, and `brag-idea` skills installed** (globally in `~/.claude/skills/` is easiest — see the repo root README)
 - **FFmpeg** on `PATH`
 - **Hyperframes CLI** — `npx hyperframes doctor`
 - **For narration/voices** — Kokoro TTS runs through Python: **Python 3.10+** with `kokoro-onnx` + `soundfile`:
@@ -36,6 +36,13 @@ For a production build:
 npm run build && npm start
 ```
 
+## Two ways to start
+
+- **From a document** — drop in a PDF, deck, or infographic; `brag-docs` builds an informational video from its content, charts, and colors.
+- **From an idea** — describe the idea in the prompt box (who it's for, what it does, what viewers should do next — specifics make better videos) and optionally attach brand assets (logo, product shots, footage). `brag-idea` builds an animated promo around one visual metaphor from your words. Without assets, visuals are designed from the idea itself.
+
+Both kinds share the same progress view, voice options, revoice/rebuild, and library. Idea jobs store the prompt at `data/jobs/<id>/input/prompt.md` (assets in `input/assets/`) and render to `brag-idea-output/`.
+
 ## Narration voices
 
 Narration uses **Kokoro-82M** locally via `hyperframes tts` — all **54 voices** across 9 languages (American/British English, Spanish, French, Italian, Portuguese, Hindi, Japanese, Chinese) are available, grouped by language in the UI, plus a **speed** control.
@@ -50,14 +57,14 @@ Kokoro is fast, free, and local, but it's an 82M model — good, not the most na
 
 ## How it works
 
-- **Upload** → `POST /api/jobs` saves the file under `data/jobs/<id>/input/` and spawns:
+- **Upload / prompt** → `POST /api/jobs` (`mode=document` with a `file`, or `mode=prompt` with `prompt` + optional `assets`) saves inputs under `data/jobs/<id>/input/` and spawns:
   ```
   claude -p "<brag-docs prompt>" --permission-mode bypassPermissions --output-format stream-json --verbose
   ```
   with the job directory as the working directory.
 - **Progress** → the agent's stream-json events are parsed into human-readable steps in `data/jobs/<id>/progress.jsonl`; the job page polls `GET /api/jobs/<id>` to render them live.
-- **Result** → on success the app finds `brag-docs-output/brag.mp4` (+ poster + share copy) in the job directory and records it in `data/library.json`.
-- **Library & search** → `GET /api/jobs?q=` filters the library by title, filename, tone, or date.
+- **Result** → on success the app finds `brag-docs-output/brag.mp4` or `brag-idea-output/brag.mp4` (+ poster + share copy) in the job directory and records it in `data/library.json`.
+- **Library & search** → `GET /api/jobs?q=` filters the library by title, filename, prompt text, kind, tone, or date.
 - **Media** → served by `GET /api/files/[...path]` from `data/` with HTTP range support (video scrubbing).
 
 ## Data & privacy

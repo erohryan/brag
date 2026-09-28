@@ -5,11 +5,11 @@ import VoiceGallery from '../components/VoiceGallery.jsx';
 export default function HomePage() {
   return (
     <div>
-      <h1>Turn a document into a video.</h1>
+      <h1>Turn a document — or an idea — into a video.</h1>
       <p className="lede">
-        Drop in a PDF, slide deck, or infographic. brag studio reuses its charts,
-        images, and colors to build a short informational video — then keeps every
-        one in a searchable library.
+        Drop in a PDF, slide deck, or infographic and brag studio reuses its charts,
+        images, and colors to build an informational video. Or just describe an idea
+        and get an animated promo. Every video lands in a searchable library.
       </p>
       <UploadForm />
 

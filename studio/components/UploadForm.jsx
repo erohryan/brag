@@ -17,11 +17,18 @@ const TONES = [
 ];
 const FORMATS = ['landscape', 'vertical', 'square'];
 const ACCEPT = '.pdf,.pptx,.key,.png,.jpg,.jpeg,.webp,.svg,.gif';
+const ASSET_ACCEPT = '.png,.jpg,.jpeg,.webp,.svg,.gif,.mp4,.webm,.mov';
+const PROMPT_EXAMPLE =
+  'e.g. A browser extension that turns any recipe into a grocery list in one click. For busy home cooks. Free, launching next week at listly.app.';
 
 export default function UploadForm() {
   const router = useRouter();
   const inputRef = useRef(null);
+  const assetsRef = useRef(null);
+  const [mode, setMode] = useState('document');
   const [file, setFile] = useState(null);
+  const [prompt, setPrompt] = useState('');
+  const [assets, setAssets] = useState([]);
   const [drag, setDrag] = useState(false);
   const [tone, setTone] = useState('polished');
   const [format, setFormat] = useState('landscape');
@@ -63,12 +70,18 @@ export default function UploadForm() {
 
   async function submit(e) {
     e.preventDefault();
-    if (!file || submitting) return;
+    if (!ready || submitting) return;
     setSubmitting(true);
     setError('');
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('mode', mode);
+      if (mode === 'prompt') {
+        fd.append('prompt', prompt);
+        for (const a of assets) fd.append('assets', a);
+      } else {
+        fd.append('file', file);
+      }
       fd.append('tone', tone);
       fd.append('format', format);
       fd.append('narration', narration ? 'on' : 'off');
@@ -76,7 +89,7 @@ export default function UploadForm() {
       fd.append('speed', String(speed));
       const res = await fetch('/api/jobs', { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      if (!res.ok) throw new Error(data.error || 'Could not start the job');
       router.push(`/jobs/${data.id}`);
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -84,8 +97,73 @@ export default function UploadForm() {
     }
   }
 
+  const ready = mode === 'prompt' ? prompt.trim().length > 0 : !!file;
+
   return (
     <form className="card" onSubmit={submit}>
+      <div className="modetabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'document'}
+          className={mode === 'document' ? 'active' : ''}
+          onClick={() => setMode('document')}
+        >
+          📄 From a document
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'prompt'}
+          className={mode === 'prompt' ? 'active' : ''}
+          onClick={() => setMode('prompt')}
+        >
+          ✨ From an idea
+        </button>
+      </div>
+
+      {mode === 'prompt' ? (
+        <div className="promptbox">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={PROMPT_EXAMPLE}
+            rows={6}
+            maxLength={8000}
+          />
+          <div className="hint">
+            Describe the idea, who it&apos;s for, and what you want viewers to do. Specific
+            details (names, numbers, a URL or date) make a much better video.
+          </div>
+          <div className="assetrow">
+            <button type="button" className="iconbtn" onClick={() => assetsRef.current?.click()}>
+              + Brand assets (optional)
+            </button>
+            <input
+              ref={assetsRef}
+              type="file"
+              accept={ASSET_ACCEPT}
+              multiple
+              hidden
+              onChange={(e) => setAssets(Array.from(e.target.files || []).slice(0, 10))}
+            />
+            {assets.length > 0 ? (
+              <>
+                {assets.map((a) => (
+                  <span className="filepill" key={a.name}>
+                    {a.name}
+                  </span>
+                ))}
+                <button type="button" className="linkbtn" onClick={() => setAssets([])}>
+                  clear
+                </button>
+              </>
+            ) : (
+              <span className="hint">Logo, product shots, or footage — otherwise visuals are designed from the idea.</span>
+            )}
+          </div>
+        </div>
+      ) : (
       <div
         className={'dropzone' + (drag ? ' drag' : '')}
         onClick={() => inputRef.current?.click()}
@@ -113,6 +191,7 @@ export default function UploadForm() {
         />
         {file && <div className="filepill">📄 {file.name}</div>}
       </div>
+      )}
 
       <div className="options">
         <div className="field">
@@ -175,11 +254,11 @@ export default function UploadForm() {
       )}
 
       <div className="actions">
-        <button className="btn" type="submit" disabled={!file || submitting}>
+        <button className="btn" type="submit" disabled={!ready || submitting}>
           {submitting ? 'Starting…' : 'Generate video'}
         </button>
         <span className="hint" style={{ color: 'var(--muted)' }}>
-          Generation runs the brag-docs agent locally — this can take a few minutes.
+          Generation runs the {mode === 'prompt' ? 'brag-idea' : 'brag-docs'} agent locally — this can take a few minutes.
         </span>
       </div>
       {error && <div className="err">{error}</div>}
