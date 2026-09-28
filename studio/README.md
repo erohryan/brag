@@ -38,10 +38,12 @@ npm run build && npm start
 
 ## Two ways to start
 
-- **From a document** — drop in a PDF, deck, or infographic; `brag-docs` builds an informational video from its content, charts, and colors.
-- **From an idea** — describe the idea in the prompt box (who it's for, what it does, what viewers should do next — specifics make better videos) and optionally attach brand assets (logo, product shots, footage). `brag-idea` builds an animated promo around one visual metaphor from your words. Without assets, visuals are designed from the idea itself.
+The app has three tabs: **📄 Document**, **✨ Idea**, and **Library**.
 
-Both kinds share the same progress view, voice options, revoice/rebuild, and library. Idea jobs store the prompt at `data/jobs/<id>/input/prompt.md` (assets in `input/assets/`) and render to `brag-idea-output/`.
+- **Document tab** (`/`) — drop in a PDF, deck, or infographic; `brag-docs` builds an informational video from its content, charts, and colors.
+- **Idea tab** (`/idea`) — describe the idea in the prompt box (who it's for, what it does, what viewers should do next — specifics make better videos) and optionally attach brand assets (logo, product shots, footage). `brag-idea` builds an animated promo around one visual metaphor from your words. Without assets, visuals are designed from the idea itself.
+
+Each tab shows its own recent videos. Both kinds share the same progress view, voice options, revoice/rebuild, and library — where you can filter All / Documents / Ideas. Idea jobs store the prompt at `data/jobs/<id>/input/prompt.md` (assets in `input/assets/`) and render to `brag-idea-output/`.
 
 ## Narration voices
 
@@ -64,7 +66,7 @@ Kokoro is fast, free, and local, but it's an 82M model — good, not the most na
   with the job directory as the working directory.
 - **Progress** → the agent's stream-json events are parsed into human-readable steps in `data/jobs/<id>/progress.jsonl`; the job page polls `GET /api/jobs/<id>` to render them live.
 - **Result** → on success the app finds `brag-docs-output/brag.mp4` or `brag-idea-output/brag.mp4` (+ poster + share copy) in the job directory and records it in `data/library.json`.
-- **Library & search** → `GET /api/jobs?q=` filters the library by title, filename, prompt text, kind, tone, or date.
+- **Library & search** → `GET /api/jobs?q=&kind=docs|idea` filters the library by title, filename, prompt text, kind, tone, or date.
 - **Media** → served by `GET /api/files/[...path]` from `data/` with HTTP range support (video scrubbing).
 
 ## Data & privacy

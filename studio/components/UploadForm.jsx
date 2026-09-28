@@ -21,11 +21,10 @@ const ASSET_ACCEPT = '.png,.jpg,.jpeg,.webp,.svg,.gif,.mp4,.webm,.mov';
 const PROMPT_EXAMPLE =
   'e.g. A browser extension that turns any recipe into a grocery list in one click. For busy home cooks. Free, launching next week at listly.app.';
 
-export default function UploadForm() {
+export default function UploadForm({ mode = 'document' }) {
   const router = useRouter();
   const inputRef = useRef(null);
   const assetsRef = useRef(null);
-  const [mode, setMode] = useState('document');
   const [file, setFile] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [assets, setAssets] = useState([]);
@@ -101,27 +100,6 @@ export default function UploadForm() {
 
   return (
     <form className="card" onSubmit={submit}>
-      <div className="modetabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'document'}
-          className={mode === 'document' ? 'active' : ''}
-          onClick={() => setMode('document')}
-        >
-          📄 From a document
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'prompt'}
-          className={mode === 'prompt' ? 'active' : ''}
-          onClick={() => setMode('prompt')}
-        >
-          ✨ From an idea
-        </button>
-      </div>
-
       {mode === 'prompt' ? (
         <div className="promptbox">
           <textarea
@@ -129,6 +107,7 @@ export default function UploadForm() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={PROMPT_EXAMPLE}
             rows={6}
+            autoFocus
             maxLength={8000}
           />
           <div className="hint">
@@ -255,7 +234,7 @@ export default function UploadForm() {
 
       <div className="actions">
         <button className="btn" type="submit" disabled={!ready || submitting}>
-          {submitting ? 'Starting…' : 'Generate video'}
+          {submitting ? 'Starting…' : mode === 'prompt' ? 'Generate promo' : 'Generate video'}
         </button>
         <span className="hint" style={{ color: 'var(--muted)' }}>
           Generation runs the {mode === 'prompt' ? 'brag-idea' : 'brag-docs'} agent locally — this can take a few minutes.

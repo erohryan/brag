@@ -61,8 +61,46 @@ a {
   font-weight: 600;
   color: var(--muted);
 }
+.nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.25;
+  padding: 7px 12px;
+  border-radius: 9px;
+  transition: background 0.15s, color 0.15s;
+}
 .nav a:hover {
   color: var(--text);
+}
+.nav a.active {
+  color: var(--text);
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.nav {
+  gap: 6px;
+  align-items: center;
+}
+.inline-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.libtools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.libtools .searchbar {
+  flex: 1;
+  min-width: 240px;
+  margin-bottom: 0;
+}
+.libtools .modetabs {
+  margin-bottom: 0;
 }
 
 .container {

@@ -1,9 +1,10 @@
 import './globals.css';
 import Link from 'next/link';
+import NavTabs from '../components/NavTabs.jsx';
 
 export const metadata = {
   title: 'brag studio',
-  description: 'Turn documents into engaging informational videos.',
+  description: 'Turn documents and ideas into engaging videos.',
 };
 
 export default function RootLayout({ children }) {
@@ -14,10 +15,7 @@ export default function RootLayout({ children }) {
           <Link href="/" className="brand">
             brag<span>studio</span>
           </Link>
-          <nav className="nav">
-            <Link href="/">New</Link>
-            <Link href="/library">Library</Link>
-          </nav>
+          <NavTabs />
         </header>
         <main className="container">{children}</main>
       </body>

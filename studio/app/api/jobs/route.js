@@ -19,8 +19,8 @@ function sanitizeName(name) {
 }
 
 export async function GET(request) {
-  const q = new URL(request.url).searchParams.get('q') || '';
-  return Response.json({ jobs: listJobs(q) });
+  const params = new URL(request.url).searchParams;
+  return Response.json({ jobs: listJobs(params.get('q') || '', params.get('kind') || '') });
 }
 
 const MAX_PROMPT = 8000;

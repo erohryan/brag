@@ -5,8 +5,8 @@ export default function LibraryPage() {
     <div>
       <h1>Library</h1>
       <p className="lede">
-        Every document you&apos;ve turned into a video. Search by title, filename,
-        tone, or date.
+        Every video you&apos;ve made — from documents and from ideas. Search by title,
+        prompt, filename, tone, or date, or filter by kind.
       </p>
       <LibraryBrowser />
     </div>

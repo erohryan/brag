@@ -19,8 +19,14 @@ function writeAll(list) {
   fs.writeFileSync(LIBRARY_FILE, JSON.stringify(list, null, 2));
 }
 
-export function listJobs(q) {
+// Jobs created before kinds existed are document jobs.
+export function kindOf(rec) {
+  return rec.kind === 'idea' ? 'idea' : 'docs';
+}
+
+export function listJobs(q, kind) {
   let list = readAll().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  if (kind === 'docs' || kind === 'idea') list = list.filter((r) => kindOf(r) === kind);
   const needle = (q || '').trim().toLowerCase();
   if (needle) {
     list = list.filter((r) =>

@@ -16,56 +16,73 @@ function fmtDate(ts) {
   }
 }
 
-export default function LibraryBrowser({ compact = false }) {
+const FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'docs', label: '📄 Documents' },
+  { value: 'idea', label: '✨ Ideas' },
+];
+
+// `kind` pins the list to one job kind (used by the per-tab "recent" strips);
+// without it, the full library shows filter chips.
+export default function LibraryBrowser({ compact = false, kind = '' }) {
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('');
   const [jobs, setJobs] = useState(null);
+  const activeKind = kind || filter;
 
   useEffect(() => {
     let alive = true;
-    const t = setTimeout(async () => {
+    const url = `/api/jobs?q=${encodeURIComponent(compact ? '' : q)}&kind=${activeKind}`;
+    const load = async () => {
       try {
-        const res = await fetch(`/api/jobs?q=${encodeURIComponent(q)}`, {
-          cache: 'no-store',
-        });
+        const res = await fetch(url, { cache: 'no-store' });
         const data = await res.json();
         if (alive) setJobs(data.jobs || []);
       } catch {
-        if (alive) setJobs([]);
+        if (alive) setJobs((j) => j || []);
       }
-    }, compact ? 0 : 220);
+    };
+    const t = setTimeout(load, compact ? 0 : 220);
+    // Compact strips refresh so a just-started job shows up.
+    const iv = compact ? setInterval(load, 4000) : null;
     return () => {
       alive = false;
       clearTimeout(t);
+      if (iv) clearInterval(iv);
     };
-  }, [q, compact]);
-
-  // In compact mode, refresh periodically so a just-started job appears.
-  useEffect(() => {
-    if (!compact) return;
-    const iv = setInterval(async () => {
-      try {
-        const res = await fetch('/api/jobs', { cache: 'no-store' });
-        const data = await res.json();
-        setJobs(data.jobs || []);
-      } catch {
-        /* ignore */
-      }
-    }, 4000);
-    return () => clearInterval(iv);
-  }, [compact]);
+  }, [q, compact, activeKind]);
 
   const list = compact ? (jobs || []).slice(0, 6) : jobs || [];
+  const noun = activeKind === 'idea' ? 'ideas' : activeKind === 'docs' ? 'documents' : 'videos';
 
   return (
     <div>
       {!compact && (
-        <input
-          className="searchbar"
-          type="text"
-          placeholder="Search documents and videos…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <div className="libtools">
+          <input
+            className="searchbar"
+            type="text"
+            placeholder="Search titles, prompts, filenames, tones…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {!kind && (
+            <div className="modetabs" role="tablist" aria-label="Filter by kind">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.value || 'all'}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === f.value}
+                  className={filter === f.value ? 'active' : ''}
+                  onClick={() => setFilter(f.value)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {jobs === null ? (
@@ -73,10 +90,10 @@ export default function LibraryBrowser({ compact = false }) {
       ) : list.length === 0 ? (
         <div className="empty">
           {compact
-            ? 'Nothing yet — your generated videos will show up here.'
+            ? `Nothing yet — your ${noun} will show up here.`
             : q
               ? 'No matches.'
-              : 'No videos yet. Head to New to make your first one.'}
+              : `No ${noun} yet. Start one from the Document or Idea tab.`}
         </div>
       ) : (
         <div className="grid">
