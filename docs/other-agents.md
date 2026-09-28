@@ -1,6 +1,6 @@
 # Using /brag with other AI coding agents
 
-This repo ships three skills — `brag` (the render engine), `brag-strategy` (the marketing-program planner), and `brag-docs` (the document explainer). The methods below apply to each; wherever you see `skills/brag/`, the same applies to `skills/brag-strategy/` and `skills/brag-docs/`. Note `brag-docs` reuses the `brag` engine, so install `brag` alongside it.
+This repo ships four skills — `brag` (the render engine), `brag-strategy` (the marketing-program planner), `brag-docs` (the document explainer), and `brag-idea` (the idea promo). The methods below apply to each; wherever you see `skills/brag/`, the same applies to `skills/brag-strategy/`, `skills/brag-docs/`, and `skills/brag-idea/`. Note `brag-docs` and `brag-idea` reuse the `brag` engine, so install `brag` alongside them.
 
 Agents like **Cursor**, **Aider**, or any LLM with custom instructions don't have native `SKILL.md` discovery. Use one of these methods:
 

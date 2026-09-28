@@ -1,6 +1,6 @@
 {
   "name": "brag",
-  "description": "You built it. Now brag. /brag turns a project (or one feature) into a short shareable video; /brag-strategy plans an ongoing program of feature-focused marketing videos; /brag-docs turns PDFs, decks, and infographics into informational videos.",
+  "description": "You built it. Now brag. /brag turns a project (or one feature) into a short shareable video; /brag-strategy plans an ongoing program of feature-focused marketing videos; /brag-docs turns PDFs, decks, and infographics into informational videos; /brag-idea turns a written idea into an animated promo.",
   "owner": {
     "name": "Shunit Haviv Hakimi",
     "email": "shunithaviv@gmail.com",
@@ -10,7 +10,7 @@
     {
       "name": "brag",
       "source": "./",
-      "description": "Marketing-content engine: /brag renders feature-focused videos, /brag-strategy plans the ongoing content program, /brag-docs turns documents into informational videos. Powered by HyperFrames."
+      "description": "Marketing-content engine: /brag renders feature-focused videos, /brag-strategy plans the ongoing content program, /brag-docs turns documents into informational videos, /brag-idea turns ideas into promos. Powered by HyperFrames."
     }
   ]
 }
