@@ -45,10 +45,13 @@ export async function POST(request) {
   const narration = (form.get('narration') || 'off').toString() === 'on';
   const voice = voiceById((form.get('voice') || '').toString())?.id || DEFAULT_VOICE;
   const speed = clampSpeed(form.get('speed'));
+  // Audio toggles default on; only an explicit "off" disables them.
+  const music = (form.get('music') ?? 'on').toString() !== 'off';
+  const sfx = (form.get('sfx') ?? 'on').toString() !== 'off';
 
   const id = makeId();
   const dir = jobDirFor(id);
-  const base = { id, tone, format, narration, voice, speed, status: 'queued', createdAt: Date.now() };
+  const base = { id, tone, format, narration, voice, speed, music, sfx, status: 'queued', createdAt: Date.now() };
   let rec;
 
   if (mode === 'prompt') {

@@ -32,6 +32,8 @@ export default function UploadForm({ mode = 'document' }) {
   const [tone, setTone] = useState('polished');
   const [format, setFormat] = useState('landscape');
   const [narration, setNarration] = useState(false);
+  const [music, setMusic] = useState(true);
+  const [sfx, setSfx] = useState(true);
   const [voice, setVoice] = useState('af_heart');
   const [speed, setSpeed] = useState(SPEED.default);
   const [voices, setVoices] = useState([]);
@@ -84,6 +86,8 @@ export default function UploadForm({ mode = 'document' }) {
       fd.append('tone', tone);
       fd.append('format', format);
       fd.append('narration', narration ? 'on' : 'off');
+      fd.append('music', music ? 'on' : 'off');
+      fd.append('sfx', sfx ? 'on' : 'off');
       fd.append('voice', voice);
       fd.append('speed', String(speed));
       const res = await fetch('/api/jobs', { method: 'POST', body: fd });
@@ -193,17 +197,27 @@ export default function UploadForm({ mode = 'document' }) {
             ))}
           </select>
         </div>
-        <div className="field check">
-          <input
-            id="narration"
-            type="checkbox"
-            checked={narration}
-            onChange={(e) => setNarration(e.target.checked)}
-          />
-          <label htmlFor="narration" style={{ textTransform: 'none', margin: 0 }}>
-            Add narration (voiceover)
-          </label>
-        </div>
+      </div>
+
+      <div className="audiorow">
+        <span className="audiolabel">Audio</span>
+        <label className={'toggle' + (music ? ' on' : '')}>
+          <input type="checkbox" checked={music} onChange={(e) => setMusic(e.target.checked)} />
+          Music
+        </label>
+        <label className={'toggle' + (sfx ? ' on' : '')}>
+          <input type="checkbox" checked={sfx} onChange={(e) => setSfx(e.target.checked)} />
+          Sound effects
+        </label>
+        <label className={'toggle' + (narration ? ' on' : '')}>
+          <input type="checkbox" checked={narration} onChange={(e) => setNarration(e.target.checked)} />
+          Narration
+        </label>
+        <span className="hint">
+          {!music && !sfx && !narration
+            ? 'Silent video.'
+            : `These override any audio instructions in your ${mode === 'prompt' ? 'prompt' : 'document'}.`}
+        </span>
       </div>
 
       {narration && (

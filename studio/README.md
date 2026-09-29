@@ -45,6 +45,10 @@ The app has three tabs: **📄 Document**, **✨ Idea**, and **Library**.
 
 Each tab shows its own recent videos. Both kinds share the same progress view, voice options, revoice/rebuild, and library — where you can filter All / Documents / Ideas. Idea jobs store the prompt at `data/jobs/<id>/input/prompt.md` (assets in `input/assets/`) and render to `brag-idea-output/`.
 
+## Audio
+
+Every job has an **Audio** row with three toggles: **Music** and **Sound effects** (on by default, drawn from the brag engine's bundled tracks and SFX) and **Narration** (off by default; see below). These settings are authoritative — the agent is told they override any audio instructions written in your prompt or document, so a brief that says "no sound" still gets music if Music is on. Turn all three off for a silent video (e.g. for muted-autoplay feeds like LinkedIn).
+
 ## Narration voices
 
 Narration uses **Kokoro-82M** locally via `hyperframes tts` — all **54 voices** across 9 languages (American/British English, Spanish, French, Italian, Portuguese, Hindi, Japanese, Chinese) are available, grouped by language in the UI, plus a **speed** control.
@@ -78,6 +82,7 @@ Everything lives under `studio/data/` (gitignored): uploaded documents, per-job 
 | Env var | Default | Purpose |
 |---|---|---|
 | `BRAG_CLAUDE_BIN` | `claude` | Path to the Claude Code CLI used for headless generation |
+| `BRAG_STUDIO_DATA_DIR` | `studio/data` | Where jobs, uploads, renders, and `library.json` live |
 | `BRAG_HYPERFRAMES_BIN` | `npx hyperframes` | Path to the Hyperframes CLI used for voice-sample synthesis |
 
 ## Notes & limits (MVP)

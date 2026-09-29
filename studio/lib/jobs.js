@@ -60,6 +60,21 @@ function narrationLine(rec) {
   return `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}${speedFlag}\` to \`hyperframes tts\`. Do not ask about narration.`;
 }
 
+// Jobs created before the toggles existed had music + SFX on by default.
+function audioLines(rec) {
+  const music = rec.music !== false;
+  const sfx = rec.sfx !== false;
+  return [
+    music
+      ? `- Music: on — choose a bed from the brag engine's bundled tracks that fits the tone (if the video loops, make the audio loop cleanly too).`
+      : `- Music: off (equivalent to --no-music).`,
+    sfx
+      ? `- Sound effects: on — tasteful, motion-matched SFX from the brag engine's bundled library on the key moments.`
+      : `- Sound effects: off (equivalent to --no-sfx).`,
+    `- These audio settings come from the app's controls and take precedence over any audio instructions in the ${rec.kind === 'idea' ? 'brief' : 'document'}.`,
+  ];
+}
+
 function buildPrompt(rec) {
   const k = kindOf(rec);
   const lines =
@@ -70,6 +85,7 @@ function buildPrompt(rec) {
           `- Format: ${rec.format}`,
           `- Tone: ${rec.tone}`,
           narrationLine(rec),
+          ...audioLines(rec),
           rec.assets?.length
             ? `- Assets: the user supplied brand assets in input/assets/ (${rec.assets.join(', ')}) — use them (treat as --assets input/assets).`
             : `- Assets: none supplied — build conceptual visuals from the idea itself; do not imitate any real brand's marks.`,
@@ -81,6 +97,7 @@ function buildPrompt(rec) {
           `- Format: ${rec.format}`,
           `- Tone: ${rec.tone}`,
           narrationLine(rec),
+          ...audioLines(rec),
           `If the document lacks usable visuals or brand assets, do not wait for input — proceed with a clean neutral look and note it in the plan.`,
         ];
   lines.push(
@@ -103,7 +120,7 @@ function buildRevoicePrompt(rec, voiceId, speed) {
     `- Adjust scene/clip timing to the new audio duration so the narration stays in sync.`,
     `- Re-render to ${k.out}/brag.mp4 and refresh the poster ${k.out}/brag.jpg.`,
     `Keep the same visuals, structure, and share copy.`,
-    `If narration was previously OFF or there is no existing composition, instead do a full ${k.skill} run of ${k.source(rec)} with narration ON using voice "${voiceId}" (format ${rec.format}, tone ${rec.tone}).`,
+    `If narration was previously OFF or there is no existing composition, instead do a full ${k.skill} run of ${k.source(rec)} with narration ON using voice "${voiceId}" (format ${rec.format}, tone ${rec.tone}, music ${rec.music !== false ? 'on' : 'off'}, sound effects ${rec.sfx !== false ? 'on' : 'off'}).`,
     `Ensure ${k.out}/brag.mp4 and ${k.out}/brag.jpg exist when done.`,
   ].join('\n');
 }

@@ -141,6 +141,15 @@ export default function JobView({ id }) {
         <span className="badge">{job.tone}</span>
         <span className="badge">{job.format}</span>
         <span className="badge">
+          {job.music === false && job.sfx === false
+            ? 'no music / sfx'
+            : job.music === false
+              ? 'sfx only'
+              : job.sfx === false
+                ? 'music only'
+                : 'music + sfx'}
+        </span>
+        <span className="badge">
           {job.narration
             ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voice || 'default'}`
             : 'no narration'}
