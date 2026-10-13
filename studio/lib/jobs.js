@@ -4,6 +4,10 @@ import path from 'node:path';
 import { DATA_DIR, jobDirFor } from './paths.js';
 import { getJob, upsertJob } from './store.js';
 import { voiceById } from './voices.js';
+import { isVoiceboxId } from './voicebox.mjs';
+
+// Our TTS wrapper: same interface as `hyperframes tts`, plus cloned Voicebox voices.
+const TTS_CLI = path.join(process.cwd(), 'bin', 'tts.mjs');
 
 // Tracks child processes started in this server process.
 const running = new Map();
@@ -53,11 +57,28 @@ function kindOf(rec) {
   return KINDS[rec.kind] || KINDS.docs;
 }
 
+// The command the agent should run to voice narration in `voiceId`.
+function ttsCommand(voiceId, speed) {
+  const speedFlag = speed && speed !== 1 ? ` --speed ${speed}` : '';
+  return isVoiceboxId(voiceId)
+    ? `node "${TTS_CLI}" --voice ${voiceId}${speedFlag}`
+    : `hyperframes tts --voice ${voiceId}${speedFlag}`;
+}
+
+function voiceDescription(voiceId, voiceName) {
+  const name = voiceName || voiceById(voiceId)?.name;
+  return isVoiceboxId(voiceId)
+    ? `the user's cloned voice "${name || voiceId}" (Voicebox, runs locally)`
+    : `the Kokoro voice "${voiceId}"${name ? ` (${name})` : ''}`;
+}
+
 function narrationLine(rec) {
   if (!rec.narration) return `- Narration: off (no voice); do not ask about narration.`;
-  const v = voiceById(rec.voice);
-  const speedFlag = rec.speed && rec.speed !== 1 ? ` --speed ${rec.speed}` : '';
-  return `- Narration: on. Use the Kokoro voice "${rec.voice}"${v ? ` (${v.name})` : ''} for all narration — pass \`--voice ${rec.voice}${speedFlag}\` to \`hyperframes tts\`. Do not ask about narration.`;
+  const cmd = ttsCommand(rec.voice, rec.speed);
+  const how = isVoiceboxId(rec.voice)
+    ? `Generate every voiceover with \`${cmd} --output <file>.wav "<script text or path to a .txt>"\` INSTEAD of \`hyperframes tts\` — same interface, writes a WAV (it may take a minute; wait for it).`
+    : `Generate it with \`${cmd} --output <file>.wav "<script>"\`.`;
+  return `- Narration: on, in ${voiceDescription(rec.voice, rec.voiceName)}. ${how} Do not ask about narration.`;
 }
 
 // Jobs created before the toggles existed had music + SFX on by default.
@@ -109,14 +130,12 @@ function buildPrompt(rec) {
 
 function buildRevoicePrompt(rec, voiceId, speed) {
   const k = kindOf(rec);
-  const v = voiceById(voiceId);
-  const speedFlag = speed && speed !== 1 ? ` --speed ${speed}` : '';
   return [
     `Use the ${k.skill} skill to REBUILD the narration of an existing video with a different voice. Do NOT replan or restyle the visuals.`,
     `This is an automated, non-interactive run. Do NOT ask me any questions.`,
     `The working directory already contains the previous run under ${k.out}/ (its composition/ and brag-plan.md).`,
     `Do this:`,
-    `- Regenerate the voiceover from the existing narration script using the Kokoro voice "${voiceId}"${v ? ` (${v.name})` : ''}: run \`hyperframes tts\` with \`--voice ${voiceId}${speedFlag}\`, overwriting the composition's existing voiceover asset (e.g. ${k.out}/composition/assets/voiceover.wav).`,
+    `- Regenerate the voiceover from the existing narration script in ${voiceDescription(voiceId, rec.voiceName)}: run \`${ttsCommand(voiceId, speed)} --output ${k.out}/composition/assets/voiceover.wav "<script text or path to a .txt>"\`${isVoiceboxId(voiceId) ? ' (use this command, not `hyperframes tts`)' : ''}, overwriting the composition's existing voiceover asset.`,
     `- Adjust scene/clip timing to the new audio duration so the narration stays in sync.`,
     `- Re-render to ${k.out}/brag.mp4 and refresh the poster ${k.out}/brag.jpg.`,
     `Keep the same visuals, structure, and share copy.`,
@@ -238,16 +257,16 @@ function finish(id, patch) {
 }
 
 export function startJob(rec) {
-  runAgent(rec, buildPrompt(rec), 'Starting brag-docs…');
+  runAgent(rec, buildPrompt(rec), `Starting ${kindOf(rec).skill}…`);
 }
 
-export function startRevoice(rec, voiceId, speed) {
+export function startRevoice(rec, voice, speed) {
   // Keep the existing video visible until the rebuild succeeds; only flip voice
   // + narration now, and let finish() swap in the new render on success.
-  const updated = { ...rec, voice: voiceId, narration: true, error: undefined };
+  const updated = { ...rec, voice: voice.id, voiceName: voice.name, narration: true, error: undefined };
   if (speed) updated.speed = speed;
   upsertJob(updated);
-  runAgent(updated, buildRevoicePrompt(updated, voiceId, updated.speed), `Rebuilding with voice ${voiceId}…`);
+  runAgent(updated, buildRevoicePrompt(updated, voice.id, updated.speed), `Rebuilding with voice ${voice.name || voice.id}…`);
 }
 
 function runAgent(rec, prompt, startMessage) {

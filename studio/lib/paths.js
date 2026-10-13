@@ -17,3 +17,8 @@ export function ensureDirs() {
 export function jobDirFor(id) {
   return path.join(JOBS_DIR, id);
 }
+
+// Cached preview clip for a voice (Kokoro id or vb:<profileId>).
+export function voiceSampleFile(id) {
+  return path.join(DATA_DIR, 'voice-samples', `${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}.wav`);
+}

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { previewVoice } from './voicePreview.js';
 import VoiceSelect from './VoiceSelect.jsx';
+import CreateVoice from './CreateVoice.jsx';
+import useVoices from './useVoices.js';
 import { SPEED } from '../lib/voices.js';
 
 const TERMINAL = new Set(['done', 'failed']);
@@ -12,20 +14,14 @@ export default function JobView({ id }) {
   const [job, setJob] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [tick, setTick] = useState(0);
-  const [voices, setVoices] = useState([]);
+  const { voices, reload: reloadVoices } = useVoices();
+  const [creatingVoice, setCreatingVoice] = useState(false);
   const [newVoice, setNewVoice] = useState('');
   const [newSpeed, setNewSpeed] = useState(SPEED.default);
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
   const logRef = useRef(null);
-
-  useEffect(() => {
-    fetch('/api/voices')
-      .then((r) => r.json())
-      .then((d) => setVoices(d.voices || []))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -151,7 +147,7 @@ export default function JobView({ id }) {
         </span>
         <span className="badge">
           {job.narration
-            ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voice || 'default'}`
+            ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voiceName || job.voice || 'default'}`
             : 'no narration'}
         </span>
         {job.docRel && (
@@ -224,6 +220,9 @@ export default function JobView({ id }) {
             <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
               {previewing ? <span className="spinner" /> : '▶'} Preview
             </button>
+            <button type="button" className="iconbtn" onClick={() => setCreatingVoice(true)}>
+              + Create your voice
+            </button>
             <button type="button" className="btn" onClick={rebuild} disabled={rebuilding}>
               {rebuilding ? 'Starting…' : 'Rebuild with this voice'}
             </button>
@@ -240,6 +239,14 @@ export default function JobView({ id }) {
             />
           </div>
           {voiceError && <div className="err">{voiceError}</div>}
+          <CreateVoice
+            open={creatingVoice}
+            onClose={() => setCreatingVoice(false)}
+            onCreated={async (v) => {
+              await reloadVoices();
+              setNewVoice(v.id);
+            }}
+          />
         </div>
       )}
 

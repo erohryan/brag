@@ -57,9 +57,24 @@ Narration uses **Kokoro-82M** locally via `hyperframes tts` — all **54 voices*
 - **Pick a voice + speed for a new video** — turn narration on in the upload form, choose a voice (with an inline preview) and a speech speed before generating.
 - **Swap the voice on an existing video** — open any finished video and use the **Voice** panel to pick a different voice/speed and *Rebuild with this voice*. The rebuild keeps the same visuals, structure, and script — it only regenerates the voiceover, re-times to the new audio, and re-renders. If the original had no narration, rebuilding adds it.
 
-### More natural voices (planned)
+### Your own voice — cloned locally with Voicebox
 
-Kokoro is fast, free, and local, but it's an 82M model — good, not the most natural. The planned upgrade is a cloud provider (**ElevenLabs**) selectable per video. The seam is `lib/tts.js` (`runTts`): add an ElevenLabs branch that produces a WAV from text + voice id, tag those voices with a `provider` field, and the rest of the app — preview, selection, revoice — already works unchanged.
+Clone your own voice and narrate videos with it, entirely on this machine. Cloning and speech run in [Voicebox](https://github.com/jamiepine/voicebox) (Qwen TTS on Apple Silicon via MLX); the studio talks to it on `127.0.0.1:17493`, so nothing is sent to a cloud service.
+
+**One-time setup**
+1. Install the Voicebox app (signed and notarized) from its [releases](https://github.com/jamiepine/voicebox/releases) into `/Applications`.
+2. In Voicebox → Models, download **Qwen TTS 1.7B** (~4.3 GB, one time). After that everything runs offline.
+
+**Using it**
+- **Create** — click **+ Create your voice** (in the voice gallery, the narration picker, or a video's Voice panel). Record yourself reading the passage shown (~20s), or upload a 2–30s clip and type exactly what's said. Confirm it's your voice (or that you have permission), name it, done.
+- **Stored for future use** — Voicebox keeps the voice; it appears under **Your voices** in every picker. The studio also remembers it (`data/voicebox-voices.json`) so it's listed even while Voicebox is closed.
+- **Starts automatically** — previewing, generating, or rebuilding with a cloned voice launches Voicebox in the background if it isn't running (the first generation after a cold start takes ~45s while the model loads; then ~10s).
+- **Narration** — the agent voices the script with `studio/bin/tts.mjs`, a drop-in for `hyperframes tts` that also speaks Voicebox voices. Speed is applied with ffmpeg (Voicebox v0.5 has no speed control).
+- **Delete** — hover a cloned voice in the gallery and click ×.
+
+### More natural built-in voices (planned)
+
+Kokoro is fast, free, and local, but it's an 82M model. A cloud provider (**ElevenLabs**) remains an option; the seam is `lib/tts.js` (`runTts`).
 
 ## How it works
 
@@ -83,6 +98,8 @@ Everything lives under `studio/data/` (gitignored): uploaded documents, per-job 
 |---|---|---|
 | `BRAG_CLAUDE_BIN` | `claude` | Path to the Claude Code CLI used for headless generation |
 | `BRAG_STUDIO_DATA_DIR` | `studio/data` | Where jobs, uploads, renders, and `library.json` live |
+| `VOICEBOX_URL` | `http://127.0.0.1:17493` | Local Voicebox server for cloned voices |
+| `VOICEBOX_APP` | `/Applications/Voicebox.app` | App launched automatically when Voicebox isn't running |
 | `BRAG_HYPERFRAMES_BIN` | `npx hyperframes` | Path to the Hyperframes CLI used for voice-sample synthesis |
 
 ## Notes & limits (MVP)

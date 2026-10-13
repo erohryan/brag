@@ -1,13 +1,23 @@
 import { spawn } from 'node:child_process';
+import { ensureVoicebox, isVoiceboxId, profileIdOf, synthesize } from './voicebox.mjs';
 
 const INSTALL_HINT =
   'Voice narration needs Kokoro TTS: Python 3.10+ with `pip install kokoro-onnx soundfile`. ' +
   'If your default python3 is older, install on a newer one and set HYPERFRAMES_PYTHON to it.';
 
-// Synthesize speech with Kokoro via the Hyperframes CLI. Kokoro runs through
-// Python (kokoro-onnx); the CLI resolves it via HYPERFRAMES_PYTHON or python3.
-// The first run downloads the model; later runs are fast. Returns a promise.
-export function runTts({ text, voice, output }) {
+// Synthesize speech. Cloned voices (vb:<id>) go to the local Voicebox app;
+// everything else is Kokoro via the Hyperframes CLI (Python kokoro-onnx,
+// resolved via HYPERFRAMES_PYTHON or python3). Returns a promise.
+export async function runTts({ text, voice, output, speed = 1, timeoutMs }) {
+  if (isVoiceboxId(voice)) {
+    await ensureVoicebox();
+    await synthesize({ profileId: profileIdOf(voice), text, output, speed, ...(timeoutMs ? { timeoutMs } : {}) });
+    return;
+  }
+  return runKokoro({ text, voice, output });
+}
+
+function runKokoro({ text, voice, output }) {
   return new Promise((resolve, reject) => {
     const bin = process.env.BRAG_HYPERFRAMES_BIN;
     const cmd = bin || 'npx';

@@ -3,7 +3,8 @@ import path from 'node:path';
 import { listJobs, upsertJob } from '../../../lib/store.js';
 import { startJob } from '../../../lib/jobs.js';
 import { jobDirFor } from '../../../lib/paths.js';
-import { voiceById, DEFAULT_VOICE, clampSpeed } from '../../../lib/voices.js';
+import { DEFAULT_VOICE, clampSpeed, voiceById } from '../../../lib/voices.js';
+import { pickVoice } from '../../../lib/voiceCatalog.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,15 @@ export async function POST(request) {
   const tone = (form.get('tone') || 'polished').toString();
   const format = (form.get('format') || 'landscape').toString();
   const narration = (form.get('narration') || 'off').toString() === 'on';
-  const voice = voiceById((form.get('voice') || '').toString())?.id || DEFAULT_VOICE;
+  const requestedVoice = (form.get('voice') || '').toString();
+  let voice = DEFAULT_VOICE;
+  let voiceName = voiceById(DEFAULT_VOICE)?.name;
+  if (narration && requestedVoice) {
+    const picked = await pickVoice(requestedVoice);
+    if (picked.error) return Response.json({ error: picked.error }, { status: picked.status });
+    voice = picked.voice.id;
+    voiceName = picked.voice.name;
+  }
   const speed = clampSpeed(form.get('speed'));
   // Audio toggles default on; only an explicit "off" disables them.
   const music = (form.get('music') ?? 'on').toString() !== 'off';
@@ -51,7 +60,7 @@ export async function POST(request) {
 
   const id = makeId();
   const dir = jobDirFor(id);
-  const base = { id, tone, format, narration, voice, speed, music, sfx, status: 'queued', createdAt: Date.now() };
+  const base = { id, tone, format, narration, voice, voiceName, speed, music, sfx, status: 'queued', createdAt: Date.now() };
   let rec;
 
   if (mode === 'prompt') {

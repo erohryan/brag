@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import { DATA_DIR } from '../../../../../lib/paths.js';
-import { voiceById, sampleTextFor } from '../../../../../lib/voices.js';
+import { voiceSampleFile } from '../../../../../lib/paths.js';
+import { sampleTextFor } from '../../../../../lib/voices.js';
+import { pickVoice } from '../../../../../lib/voiceCatalog.js';
 import { runTts } from '../../../../../lib/tts.js';
 
 export const runtime = 'nodejs';
@@ -13,18 +14,20 @@ export const dynamic = 'force-dynamic';
 let chain = Promise.resolve();
 
 export async function GET(_request, { params }) {
-  const v = voiceById(params.id);
-  if (!v) return new Response('Unknown voice', { status: 404 });
+  const id = decodeURIComponent(params.id);
+  // For cloned voices this starts Voicebox if needed, then checks the voice exists.
+  const picked = await pickVoice(id);
+  if (picked.error) return new Response(picked.error, { status: picked.status === 400 ? 404 : picked.status });
+  const v = picked.voice;
 
-  const dir = path.join(DATA_DIR, 'voice-samples');
-  fs.mkdirSync(dir, { recursive: true });
-  const out = path.join(dir, `${v.id}.wav`);
+  const out = voiceSampleFile(v.id);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
 
   if (!fs.existsSync(out)) {
     const job = chain.then(() =>
       fs.existsSync(out)
         ? null
-        : runTts({ text: sampleTextFor(v), voice: v.id, output: out }),
+        : runTts({ text: sampleTextFor(v), voice: v.id, output: out, timeoutMs: 3 * 60 * 1000 }),
     );
     chain = job.catch(() => {});
     try {

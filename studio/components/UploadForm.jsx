@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { previewVoice } from './voicePreview.js';
 import VoiceSelect from './VoiceSelect.jsx';
+import CreateVoice from './CreateVoice.jsx';
+import useVoices from './useVoices.js';
 import { SPEED } from '../lib/voices.js';
 
 const TONES = [
@@ -36,22 +38,13 @@ export default function UploadForm({ mode = 'document' }) {
   const [sfx, setSfx] = useState(true);
   const [voice, setVoice] = useState('af_heart');
   const [speed, setSpeed] = useState(SPEED.default);
-  const [voices, setVoices] = useState([]);
+  const { voices, reload: reloadVoices } = useVoices();
+  const [creatingVoice, setCreatingVoice] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let alive = true;
-    fetch('/api/voices')
-      .then((r) => r.json())
-      .then((d) => alive && setVoices(d.voices || []))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   function preview() {
     setVoiceError('');
@@ -230,6 +223,9 @@ export default function UploadForm({ mode = 'document' }) {
             <button type="button" className="iconbtn" onClick={preview} disabled={previewing}>
               {previewing ? <span className="spinner" /> : '▶'} Preview
             </button>
+            <button type="button" className="iconbtn" onClick={() => setCreatingVoice(true)}>
+              + Create your voice
+            </button>
           </div>
           <div className="field" style={{ marginTop: 14, maxWidth: 320 }}>
             <label>Speed — {speed.toFixed(2)}×</label>
@@ -255,6 +251,14 @@ export default function UploadForm({ mode = 'document' }) {
         </span>
       </div>
       {error && <div className="err">{error}</div>}
+      <CreateVoice
+        open={creatingVoice}
+        onClose={() => setCreatingVoice(false)}
+        onCreated={async (v) => {
+          await reloadVoices();
+          setVoice(v.id);
+        }}
+      />
     </form>
   );
 }

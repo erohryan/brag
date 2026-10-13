@@ -11,7 +11,7 @@ export async function previewVoice(id, { onPlaying, onEnd, onError } = {}) {
     current = null;
   }
   try {
-    const res = await fetch(`/api/voices/${id}/sample`);
+    const res = await fetch(`/api/voices/${encodeURIComponent(id)}/sample`);
     if (!res.ok) {
       const msg = (await res.text().catch(() => '')) || `Preview failed (${res.status})`;
       onError && onError(msg);

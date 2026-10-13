@@ -126,8 +126,11 @@ npx hyperframes tts "<narration text or path to script>" \
 ```
 
 If the user wants a different Kokoro voice, run `npx hyperframes tts --list`
-to see the available options. The command above is the voice implementation
-for this PR and should be used directly.
+to see the available options. The command above is the default voice
+implementation and should be used directly — unless the caller names a
+different TTS command with the same interface (`<text|file.txt> --voice <id>
+[--speed n] --output <file>`), e.g. brag studio's local Voicebox wrapper for a
+cloned voice. Then use that command instead, exactly as given.
 
 Wire it into the composition on its own track. Music ducks to 0.12–0.15 for the duration of the voiceover, then returns to its normal level:
 
