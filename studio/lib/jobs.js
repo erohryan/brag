@@ -96,6 +96,11 @@ function audioLines(rec) {
   ];
 }
 
+// `claude -p` exits the moment the agent stops — anything left running in the
+// background (e.g. a render it meant to check on later) is killed with it.
+const HEADLESS_RULE =
+  'This is a one-shot headless run: the process exits as soon as you stop. Run every command — especially the final `hyperframes render` — in the foreground and wait for it to finish. Never background a command, schedule a wake-up, or defer work; do not stop until brag.mp4 exists.';
+
 function buildPrompt(rec) {
   const k = kindOf(rec);
   const lines =
@@ -122,6 +127,7 @@ function buildPrompt(rec) {
           `If the document lacks usable visuals or brand assets, do not wait for input — proceed with a clean neutral look and note it in the plan.`,
         ];
   lines.push(
+    HEADLESS_RULE,
     `- Output directory: ${k.out}`,
     `When finished, make sure ${k.out}/brag.mp4, ${k.out}/brag.jpg, and ${k.out}/share-copy.txt all exist.`,
   );
@@ -140,6 +146,7 @@ function buildRevoicePrompt(rec, voiceId, speed) {
     `- Re-render to ${k.out}/brag.mp4 and refresh the poster ${k.out}/brag.jpg.`,
     `Keep the same visuals, structure, and share copy.`,
     `If narration was previously OFF or there is no existing composition, instead do a full ${k.skill} run of ${k.source(rec)} with narration ON using voice "${voiceId}" (format ${rec.format}, tone ${rec.tone}, music ${rec.music !== false ? 'on' : 'off'}, sound effects ${rec.sfx !== false ? 'on' : 'off'}).`,
+    HEADLESS_RULE,
     `Ensure ${k.out}/brag.mp4 and ${k.out}/brag.jpg exist when done.`,
   ].join('\n');
 }
@@ -250,6 +257,115 @@ function findOutput(dir) {
   return null;
 }
 
+function succeed(id, dir, out) {
+  appendProgress(dir, 'done', 'Video ready ✓');
+  finish(id, {
+    status: 'done',
+    error: undefined,
+    video: out.video,
+    poster: out.poster,
+    shareCopy: out.shareCopy,
+    ...(out.title ? { title: out.title } : {}),
+  });
+}
+
+// Newest output folder that contains a built composition (composition/index.html).
+function findComposition(dir) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  return (
+    entries
+      .filter((e) => e.isDirectory() && OUTPUT_PREFIXES.some((p) => e.name.startsWith(p)))
+      .map((e) => path.join(dir, e.name))
+      .sort((a, b) => statMtime(b) - statMtime(a))
+      .find((od) => fs.existsSync(path.join(od, 'composition', 'index.html'))) || null
+  );
+}
+
+// A failed job whose composition is built but never rendered can be finished.
+export function canFinishRender(rec) {
+  return !rec.video && rec.status === 'failed' && !!findComposition(jobDirFor(rec.id));
+}
+
+function execp(cmd, args) {
+  return new Promise((resolve, reject) => {
+    const c = spawn(cmd, args);
+    let out = '';
+    c.stdout.on('data', (d) => (out += d));
+    c.stderr.on('data', (d) => (out += d));
+    c.on('error', reject);
+    c.on('close', (code) => (code === 0 ? resolve(out) : reject(new Error(out.slice(-300)))));
+  });
+}
+
+async function posterFrom(mp4, jpg) {
+  const secs = parseFloat(await execp('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]));
+  const at = Number.isFinite(secs) ? Math.min(secs * 0.15, 8) : 1;
+  await execp('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(at), '-i', mp4, '-frames:v', '1', '-q:v', '2', jpg]);
+}
+
+// Render a built composition to brag.mp4 (+ a poster if the agent didn't make one).
+export function startFinishRender(rec) {
+  const dir = jobDirFor(rec.id);
+  const outDir = findComposition(dir);
+  if (!outDir) return false;
+  const mp4 = path.join(outDir, 'brag.mp4');
+  const cur = getJob(rec.id) || rec;
+  upsertJob({ ...cur, status: 'running', error: undefined });
+  appendProgress(dir, 'system', 'Rendering the finished composition (high quality)…');
+
+  const child = spawn('npx', ['--yes', 'hyperframes', 'render', '--quality', 'high', '--output', mp4], {
+    cwd: path.join(outDir, 'composition'),
+    env: process.env,
+  });
+  running.set(rec.id, child);
+  let lastPct = -1;
+  let tail = '';
+  const onData = (chunk) => {
+    const text = chunk.toString();
+    tail = (tail + text).slice(-3000);
+    try {
+      fs.appendFileSync(path.join(outDir, 'render.log'), text);
+    } catch {
+      /* best-effort */
+    }
+    const m = [...text.matchAll(/(\d{1,3})%/g)].pop();
+    if (m) {
+      const pct = Number(m[1]);
+      if (pct >= lastPct + 10 || (pct === 100 && lastPct !== 100)) {
+        lastPct = pct;
+        appendProgress(dir, 'step', `Rendering… ${pct}%`);
+      }
+    }
+  };
+  child.stdout.on('data', onData);
+  child.stderr.on('data', onData);
+  child.on('error', (err) => {
+    running.delete(rec.id);
+    appendProgress(dir, 'error', 'Render could not start: ' + err.message);
+    finish(rec.id, { status: 'failed', error: 'Render could not start: ' + err.message });
+  });
+  child.on('close', async (code) => {
+    running.delete(rec.id);
+    if (code !== 0 || !fs.existsSync(mp4)) {
+      const why = tail.replace(/\x1b\[[0-9;]*m/g, '').trim().split('\n').filter(Boolean).slice(-2).join(' ').slice(0, 240);
+      appendProgress(dir, 'error', 'Render failed: ' + why);
+      finish(rec.id, { status: 'failed', error: 'Final render failed — see render.log' });
+      return;
+    }
+    const jpg = path.join(outDir, 'brag.jpg');
+    if (!fs.existsSync(jpg)) await posterFrom(mp4, jpg).catch(() => {});
+    const out = findOutput(dir);
+    if (out) succeed(rec.id, dir, out);
+    else finish(rec.id, { status: 'failed', error: 'Render finished but the video could not be found.' });
+  });
+  return true;
+}
+
 function finish(id, patch) {
   const cur = getJob(id);
   if (!cur) return;
@@ -282,6 +398,12 @@ function runAgent(rec, prompt, startMessage) {
     '--output-format',
     'stream-json',
     '--verbose',
+    // Tools for deferring work only make sense in an interactive session.
+    '--disallowedTools',
+    'ScheduleWakeup',
+    'Monitor',
+    'CronCreate',
+    'RemoteTrigger',
   ];
 
   appendProgress(dir, 'system', startMessage);
@@ -335,14 +457,12 @@ function runAgent(rec, prompt, startMessage) {
     if (code === 0) {
       const out = findOutput(dir);
       if (out) {
-        appendProgress(dir, 'done', 'Video ready ✓');
-        finish(rec.id, {
-          status: 'done',
-          video: out.video,
-          poster: out.poster,
-          shareCopy: out.shareCopy,
-          ...(out.title ? { title: out.title } : {}),
-        });
+        succeed(rec.id, dir, out);
+      } else if (findComposition(dir)) {
+        // The agent built the composition but stopped before the render
+        // finished — render it ourselves rather than lose the work.
+        appendProgress(dir, 'system', 'The agent stopped before the final render finished — rendering it now.');
+        startFinishRender(rec);
       } else {
         appendProgress(dir, 'error', 'Finished but no video was produced.');
         finish(rec.id, { status: 'failed', error: 'No brag.mp4 found in output.' });

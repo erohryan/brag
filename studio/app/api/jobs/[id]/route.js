@@ -1,5 +1,5 @@
 import { getJob } from '../../../../lib/store.js';
-import { readProgress, isRunning } from '../../../../lib/jobs.js';
+import { readProgress, isRunning, canFinishRender } from '../../../../lib/jobs.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,7 @@ export async function GET(_request, { params }) {
   return Response.json({
     ...rec,
     running: isRunning(params.id),
+    canFinish: !isRunning(params.id) && canFinishRender(rec),
     progress: readProgress(params.id),
   });
 }

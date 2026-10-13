@@ -21,6 +21,7 @@ export default function JobView({ id }) {
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -70,6 +71,21 @@ export default function JobView({ id }) {
         setVoiceError(msg);
       },
     });
+  }
+
+  async function finishRender() {
+    setFinishing(true);
+    try {
+      const res = await fetch(`/api/jobs/${id}/finish`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not finish the render');
+      setJob((j) => (j ? { ...j, status: 'running', canFinish: false } : j));
+      setTick((t) => t + 1);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setFinishing(false);
+    }
   }
 
   async function rebuild() {
@@ -197,10 +213,24 @@ export default function JobView({ id }) {
           <div className="err" style={{ marginTop: 0 }}>
             Generation failed{job.error ? `: ${job.error}` : ''}.
           </div>
-          <p className="hint" style={{ color: 'var(--muted)' }}>
-            See the log below for details. Common causes: the brag-docs skill or
-            Hyperframes CLI isn&apos;t installed/authed on this machine.
-          </p>
+          {job.canFinish ? (
+            <>
+              <p className="hint" style={{ color: 'var(--muted)' }}>
+                The video was fully built — only the final render didn&apos;t complete. Finish it
+                without regenerating anything.
+              </p>
+              <div className="actions" style={{ marginTop: 12 }}>
+                <button type="button" className="btn" onClick={finishRender} disabled={finishing}>
+                  {finishing ? 'Starting…' : 'Finish render'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="hint" style={{ color: 'var(--muted)' }}>
+              See the log below for details. Common causes: the brag-docs skill or
+              Hyperframes CLI isn&apos;t installed/authed on this machine.
+            </p>
+          )}
         </div>
       )}
 

@@ -105,6 +105,7 @@ Everything lives under `studio/data/` (gitignored): uploaded documents, per-job 
 ## Notes & limits (MVP)
 
 - `--permission-mode bypassPermissions` lets the headless agent run FFmpeg/Hyperframes without prompts. Only run this on documents and a machine you trust.
+- **Unfinished renders are recovered.** The agent is told to render in the foreground (a headless `claude -p` run exits — and kills background work — the moment the agent stops), and tools for deferring work are blocked. If it still exits with a built composition but no video, the studio renders `brag.mp4` itself; failed jobs in that state show a **Finish render** button.
 - Jobs run in the server process. If you restart the server mid-generation, an in-flight job is orphaned and stays `running` — delete it and re-upload.
 - Concurrency is unbounded; each upload spawns its own agent. Uploading many at once will compete for CPU and tokens.
 
