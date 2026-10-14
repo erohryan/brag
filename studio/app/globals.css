@@ -898,3 +898,171 @@ textarea.transcript:focus {
 .logbox summary:hover {
   color: var(--text);
 }
+
+/* ---------- Job page: title, versions, revise, danger ---------- */
+.titlerow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.titlerow h1 {
+  margin-bottom: 8px;
+}
+.titleinput {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 4px 10px;
+  width: min(100%, 720px);
+  margin-bottom: 8px;
+}
+.badge.interrupted,
+.badge.cancelled {
+  color: var(--muted);
+  border-color: var(--border);
+}
+.viewingbar {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--accent-2);
+}
+.revise,
+.versions {
+  margin-top: 26px;
+}
+.versions ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.versions li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.versions li.current {
+  background: var(--panel-2);
+}
+.vtag {
+  font-weight: 800;
+  color: var(--accent);
+  min-width: 28px;
+}
+.vlabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vwhen {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.dangerzone {
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.linkbtn.danger {
+  color: var(--bad);
+}
+.progress .row.policy {
+  color: var(--accent-2);
+}
+
+/* ---------- Setup ---------- */
+.checks .hint {
+  color: var(--muted);
+}
+.checkrow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.checkrow:last-of-type {
+  border-bottom: none;
+}
+.checkicon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+.checkrow.ok .checkicon {
+  background: var(--good);
+  color: #08140f;
+}
+.checkrow.warn .checkicon {
+  background: var(--accent-2);
+  color: #1a1206;
+}
+.checkrow.fail .checkicon {
+  background: var(--bad);
+  color: #1a0808;
+}
+.checklabel {
+  font-weight: 700;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.optional {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.checkdetail {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin-top: 2px;
+  word-break: break-word;
+}
+.fixlog {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent-2);
+}
+.fixlog.done {
+  color: var(--good);
+}
+.fixlog.failed {
+  color: var(--bad);
+}
+.settings {
+  margin-top: 26px;
+}
+.navdot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 2px;
+}
+.navdot.fail {
+  background: var(--bad);
+}
+.navdot.warn {
+  background: var(--accent-2);
+}

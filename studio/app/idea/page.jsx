@@ -1,3 +1,4 @@
+import SetupBanner from '../../components/SetupBanner.jsx';
 import UploadForm from '../../components/UploadForm.jsx';
 import LibraryBrowser from '../../components/LibraryBrowser.jsx';
 import VoiceGallery from '../../components/VoiceGallery.jsx';
@@ -15,6 +16,7 @@ export default function IdeaPage() {
         does, what viewers should do next — and brag-idea builds an animated promo around
         one visual metaphor drawn from your own words.
       </p>
+      <SetupBanner />
       <UploadForm mode="prompt" />
 
       <h2>Recent ideas</h2>

@@ -108,7 +108,7 @@ export default function LibraryBrowser({ compact = false, kind = '' }) {
                 }
               >
                 {!j.poster &&
-                  (j.status === 'done' ? '▶' : j.status === 'failed' ? '⚠ failed' : '⏳ ' + j.status)}
+                  ({ done: '▶', failed: '⚠ failed', interrupted: '⏸ interrupted', cancelled: '✕ cancelled', queued: '⏳ queued' }[j.status] || '⏳ ' + j.status)}
               </div>
               <div className="body">
                 <p className="t">{j.title || j.filename}</p>

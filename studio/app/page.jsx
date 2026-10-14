@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SetupBanner from '../components/SetupBanner.jsx';
 import UploadForm from '../components/UploadForm.jsx';
 import LibraryBrowser from '../components/LibraryBrowser.jsx';
 import VoiceGallery from '../components/VoiceGallery.jsx';
@@ -12,6 +13,7 @@ export default function DocumentPage() {
         and colors to build a short informational video. Got an idea instead of a
         document? Use the <Link href="/idea" className="inline-link">Idea tab</Link>.
       </p>
+      <SetupBanner />
       <UploadForm mode="document" />
 
       <h2>Recent documents</h2>

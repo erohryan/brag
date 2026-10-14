@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { previewVoice } from './voicePreview.js';
 import VoiceSelect from './VoiceSelect.jsx';
 import JobProgress from './JobProgress.jsx';
@@ -9,9 +10,25 @@ import CreateVoice from './CreateVoice.jsx';
 import useVoices from './useVoices.js';
 import { SPEED } from '../lib/voices.js';
 
-const TERMINAL = new Set(['done', 'failed']);
+const BUSY = new Set(['queued', 'running']);
+const STOPPED = new Set(['failed', 'interrupted', 'cancelled']);
+
+const money = (n) => (n >= 10 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`);
+const when = (t) => (t ? new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
+
+async function post(url, body, method = 'POST') {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
 
 export default function JobView({ id }) {
+  const router = useRouter();
   const [job, setJob] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [tick, setTick] = useState(0);
@@ -21,14 +38,16 @@ export default function JobView({ id }) {
   const [newSpeed, setNewSpeed] = useState(SPEED.default);
   const [previewing, setPreviewing] = useState(false);
   const [voiceError, setVoiceError] = useState('');
-  const [rebuilding, setRebuilding] = useState(false);
-  const [finishing, setFinishing] = useState(false);
+  const [pending, setPending] = useState(''); // which action is in flight
+  const [feedback, setFeedback] = useState('');
+  const [viewing, setViewing] = useState(null); // a previous version being played
+  const [renaming, setRenaming] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
   const logRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
     let timer;
-
     async function poll() {
       try {
         const res = await fetch(`/api/jobs/${id}`, { cache: 'no-store' });
@@ -39,9 +58,7 @@ export default function JobView({ id }) {
         const data = await res.json();
         if (!alive) return;
         setJob(data);
-        if (!TERMINAL.has(data.status)) {
-          timer = setTimeout(poll, 1200);
-        }
+        if (BUSY.has(data.status)) timer = setTimeout(poll, 1200);
       } catch {
         if (alive) timer = setTimeout(poll, 2500);
       }
@@ -53,13 +70,33 @@ export default function JobView({ id }) {
     };
   }, [id, tick]);
 
-  // Default the "new voice" selector to the job's current voice once known.
   useEffect(() => {
     if (job && !newVoice) {
       setNewVoice(job.voice || 'af_heart');
       if (job.speed) setNewSpeed(job.speed);
     }
   }, [job, newVoice]);
+
+  useEffect(() => {
+    if (logRef.current && job && BUSY.has(job.status)) logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, [job]);
+
+  // Run an action that (re)starts work on this job, then resume polling.
+  async function act(name, url, body, optimistic = 'queued') {
+    setPending(name);
+    try {
+      await post(url, body);
+      setViewing(null);
+      setJob((j) => (j ? { ...j, status: optimistic, lastError: undefined, canFinish: false, canResume: false } : j));
+      setTick((t) => t + 1);
+      return true;
+    } catch (err) {
+      alert(err.message);
+      return false;
+    } finally {
+      setPending('');
+    }
+  }
 
   function preview() {
     if (!newVoice) return;
@@ -74,99 +111,118 @@ export default function JobView({ id }) {
     });
   }
 
-  async function finishRender() {
-    setFinishing(true);
+  async function cancel() {
+    setPending('cancel');
     try {
-      const res = await fetch(`/api/jobs/${id}/finish`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not finish the render');
-      setJob((j) => (j ? { ...j, status: 'running', canFinish: false } : j));
+      await post(`/api/jobs/${id}/cancel`);
       setTick((t) => t + 1);
     } catch (err) {
       alert(err.message);
     } finally {
-      setFinishing(false);
+      setPending('');
     }
   }
 
-  async function rebuild() {
-    if (!newVoice || rebuilding) return;
-    setRebuilding(true);
+  async function saveTitle() {
+    const title = titleDraft.trim();
+    if (!title || title === job.title) return setRenaming(false);
     try {
-      const res = await fetch(`/api/jobs/${id}/revoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: newVoice, speed: newSpeed }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Rebuild failed');
-      // Optimistically flip to running and restart polling.
-      setJob((j) => (j ? { ...j, status: 'running', voice: newVoice, speed: newSpeed } : j));
-      setTick((t) => t + 1);
+      await post(`/api/jobs/${id}`, { title }, 'PATCH');
+      setJob((j) => ({ ...j, title }));
     } catch (err) {
-      alert(err.message || 'Rebuild failed');
-    } finally {
-      setRebuilding(false);
+      alert(err.message);
     }
+    setRenaming(false);
   }
 
-  // Keep the log scrolled to the newest line while running.
-  useEffect(() => {
-    if (logRef.current && job && !TERMINAL.has(job.status)) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
+  async function remove() {
+    if (!window.confirm(`Delete "${job.title || job.filename}" and all its files? This can't be undone.`)) return;
+    try {
+      await post(`/api/jobs/${id}`, null, 'DELETE');
+      router.push('/library');
+    } catch (err) {
+      alert(err.message);
     }
-  }, [job]);
+  }
 
   if (notFound) {
     return (
       <div>
         <h1>Not found</h1>
-        <p className="lede">That job doesn&apos;t exist. </p>
+        <p className="lede">That video doesn&apos;t exist (it may have been deleted).</p>
         <Link className="btn secondary" href="/library">
           Back to library
         </Link>
       </div>
     );
   }
-
   if (!job) {
     return (
-      <div>
-        <h1>
-          <span className="spinner" />
-          Loading…
-        </h1>
-      </div>
+      <h1>
+        <span className="spinner" />
+        Loading…
+      </h1>
     );
   }
 
-  const running = !TERMINAL.has(job.status);
+  const busy = BUSY.has(job.status);
+  const stopped = STOPPED.has(job.status);
+  const done = job.status === 'done' && job.video;
   const progress = job.progress || [];
+  const versions = job.versions || [];
+  const shown = viewing || { video: job.video, poster: job.poster };
 
   return (
     <div>
-      <h1>{job.title || job.filename}</h1>
+      <div className="titlerow">
+        {renaming ? (
+          <input
+            className="titleinput"
+            autoFocus
+            value={titleDraft}
+            maxLength={120}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveTitle();
+              if (e.key === 'Escape') setRenaming(false);
+            }}
+          />
+        ) : (
+          <h1>{job.title || job.filename}</h1>
+        )}
+        {!renaming && (
+          <button
+            type="button"
+            className="linkbtn"
+            onClick={() => {
+              setTitleDraft(job.title || '');
+              setRenaming(true);
+            }}
+          >
+            rename
+          </button>
+        )}
+      </div>
+
       <div className="meta">
         <span className={`badge ${job.status}`}>
-          {running && <span className="spinner" />}
-          {job.status}
+          {busy && <span className="spinner" />}
+          {job.status === 'queued' && job.queuePosition ? `queued · #${job.queuePosition}` : job.status}
         </span>
         <span className="badge">{job.tone}</span>
         <span className="badge">{job.format}</span>
         <span className="badge">
-          {job.music === false && job.sfx === false
-            ? 'no music / sfx'
-            : job.music === false
-              ? 'sfx only'
-              : job.sfx === false
-                ? 'music only'
-                : 'music + sfx'}
+          {job.music === false && job.sfx === false ? 'no music / sfx' : job.music === false ? 'sfx only' : job.sfx === false ? 'music only' : 'music + sfx'}
         </span>
         <span className="badge">
-          {job.narration
-            ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voiceName || job.voice || 'default'}`
-            : 'no narration'}
+          {job.narration ? `voice: ${voices.find((v) => v.id === job.voice)?.name || job.voiceName || job.voice || 'default'}` : 'no narration'}
         </span>
+        {job.costUsd > 0 && (
+          <span className="badge" title={job.lastRun ? `Last run: ${money(job.lastRun.costUsd)} · ${job.lastRun.turns} turns` : undefined}>
+            {money(job.costUsd)} spent
+          </span>
+        )}
         {job.docRel && (
           <a className="badge" href={`/api/files/${job.docRel}`} target="_blank" rel="noreferrer">
             {job.kind === 'idea' ? 'prompt ↗' : 'source document ↗'}
@@ -175,69 +231,156 @@ export default function JobView({ id }) {
       </div>
 
       {job.kind === 'idea' && job.prompt && (
-        <details className="promptcard" open={job.status !== 'done'}>
+        <details className="promptcard" open={!done}>
           <summary>The idea{job.assets?.length ? ` · ${job.assets.length} brand asset${job.assets.length > 1 ? 's' : ''}` : ''}</summary>
           <div className="sharecopy">{job.prompt}</div>
         </details>
       )}
 
-      {job.status !== 'done' && <JobProgress job={job} />}
+      {(busy || stopped) && <JobProgress job={job} />}
 
-      {job.status === 'done' && job.video && (
+      {busy && (
+        <div className="actions" style={{ marginTop: -8, marginBottom: 18 }}>
+          <button type="button" className="btn secondary" onClick={cancel} disabled={pending === 'cancel'}>
+            {pending === 'cancel' ? 'Cancelling…' : job.status === 'queued' ? 'Remove from queue' : 'Cancel'}
+          </button>
+          {job.video && <span className="hint">The current video stays as it is until this finishes.</span>}
+        </div>
+      )}
+
+      {stopped && (
+        <div className="card">
+          <div className={job.status === 'failed' ? 'err' : 'hint'} style={{ marginTop: 0 }}>
+            {job.status === 'failed' && `Generation failed${job.error ? `: ${job.error}` : ''}.`}
+            {job.status === 'interrupted' && 'This video was interrupted when the studio closed.'}
+            {job.status === 'cancelled' && 'You cancelled this video.'}
+          </div>
+          <p className="hint" style={{ color: 'var(--muted)' }}>
+            {job.canFinish
+              ? 'The animation was fully built — only the final render is missing. Finish it without regenerating anything, or start over.'
+              : 'Start it again from the beginning. Open Show log below for details.'}
+          </p>
+          <div className="actions" style={{ marginTop: 12 }}>
+            {job.canFinish && (
+              <button type="button" className="btn" disabled={!!pending} onClick={() => act('finish', `/api/jobs/${id}/finish`)}>
+                {pending === 'finish' ? 'Starting…' : 'Finish render'}
+              </button>
+            )}
+            {job.canResume && (
+              <button
+                type="button"
+                className={job.canFinish ? 'btn secondary' : 'btn'}
+                disabled={!!pending}
+                onClick={() => act('resume', `/api/jobs/${id}/resume`)}
+              >
+                {pending === 'resume' ? 'Starting…' : job.canFinish ? 'Start over' : 'Try again'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {done && job.lastError && !busy && <div className="notice">{job.lastError}</div>}
+
+      {job.video && (done || busy) && (
         <>
           <div className="videowrap">
             <video
+              key={shown.video}
               controls
-              autoPlay
+              autoPlay={!busy}
               playsInline
-              poster={job.poster ? `/api/files/${job.poster}` : undefined}
-              src={`/api/files/${job.video}`}
+              poster={shown.poster ? `/api/files/${shown.poster}` : undefined}
+              src={`/api/files/${shown.video}`}
             />
           </div>
-          {job.shareCopy && (
+          {viewing && (
+            <div className="viewingbar">
+              Playing version {viewing.n} — {viewing.label}.{' '}
+              <button type="button" className="linkbtn" onClick={() => setViewing(null)}>
+                Back to the current video
+              </button>
+            </div>
+          )}
+          {!viewing && job.shareCopy && (
             <>
               <h2>Share copy</h2>
               <div className="sharecopy">{job.shareCopy}</div>
             </>
           )}
           <div className="actions">
-            <a className="btn" href={`/api/files/${job.video}`} download>
-              Download video
+            <a className="btn" href={`/api/files/${shown.video}`} download>
+              Download {viewing ? `version ${viewing.n}` : 'video'}
             </a>
-            <Link className="btn secondary" href="/">
+            <Link className="btn secondary" href={job.kind === 'idea' ? '/idea' : '/'}>
               Make another
             </Link>
           </div>
         </>
       )}
 
-      {job.status === 'failed' && (
-        <div className="card">
-          <div className="err" style={{ marginTop: 0 }}>
-            Generation failed{job.error ? `: ${job.error}` : ''}.
+      {done && !busy && (
+        <div className="card revise">
+          <h2 style={{ marginTop: 0 }}>Revise</h2>
+          <p className="hint" style={{ color: 'var(--muted)', marginTop: 0 }}>
+            Describe what to change — the studio edits this video instead of starting over, and keeps the
+            current cut as a version you can go back to.
+          </p>
+          <textarea
+            className="transcript"
+            rows={3}
+            maxLength={4000}
+            value={feedback}
+            placeholder="e.g. Make the headline bigger, cut the third scene, and end on the logo for 2 extra seconds."
+            onChange={(e) => setFeedback(e.target.value)}
+          />
+          <div className="actions" style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn"
+              disabled={!feedback.trim() || !!pending}
+              onClick={async () => {
+                if (await act('revise', `/api/jobs/${id}/revise`, { feedback })) setFeedback('');
+              }}
+            >
+              {pending === 'revise' ? 'Starting…' : 'Revise video'}
+            </button>
           </div>
-          {job.canFinish ? (
-            <>
-              <p className="hint" style={{ color: 'var(--muted)' }}>
-                The video was fully built — only the final render didn&apos;t complete. Finish it
-                without regenerating anything.
-              </p>
-              <div className="actions" style={{ marginTop: 12 }}>
-                <button type="button" className="btn" onClick={finishRender} disabled={finishing}>
-                  {finishing ? 'Starting…' : 'Finish render'}
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="hint" style={{ color: 'var(--muted)' }}>
-              Open <strong>Show log</strong> below for details. Common causes: the brag skills or
-              the Hyperframes CLI aren&apos;t installed or signed in on this machine.
-            </p>
-          )}
         </div>
       )}
 
-      {!running && (
+      {versions.length > 0 && (
+        <div className="card versions">
+          <h2 style={{ marginTop: 0 }}>Versions</h2>
+          <ol>
+            <li className={!viewing ? 'current' : ''}>
+              <span className="vtag">v{versions.length + 1}</span>
+              <span className="vlabel">{job.versionLabel || 'Current'}</span>
+              <span className="vwhen">current</span>
+              {viewing && (
+                <button type="button" className="linkbtn" onClick={() => setViewing(null)}>
+                  play
+                </button>
+              )}
+            </li>
+            {[...versions].reverse().map((v) => (
+              <li key={v.n} className={viewing?.n === v.n ? 'current' : ''}>
+                <span className="vtag">v{v.n}</span>
+                <span className="vlabel">{v.label}</span>
+                <span className="vwhen">{when(v.at)}</span>
+                <button type="button" className="linkbtn" onClick={() => setViewing(v)}>
+                  play
+                </button>
+                <a className="linkbtn" href={`/api/files/${v.video}`} download>
+                  download
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {!busy && job.video && (
         <div className="revoice card">
           <h2 style={{ marginTop: 0 }}>Voice</h2>
           <p className="hint" style={{ color: 'var(--muted)', marginTop: 0 }}>
@@ -256,20 +399,18 @@ export default function JobView({ id }) {
             <button type="button" className="iconbtn" onClick={() => setCreatingVoice(true)}>
               + Create your voice
             </button>
-            <button type="button" className="btn" onClick={rebuild} disabled={rebuilding}>
-              {rebuilding ? 'Starting…' : 'Rebuild with this voice'}
+            <button
+              type="button"
+              className="btn"
+              disabled={!!pending}
+              onClick={() => act('revoice', `/api/jobs/${id}/revoice`, { voice: newVoice, speed: newSpeed })}
+            >
+              {pending === 'revoice' ? 'Starting…' : 'Rebuild with this voice'}
             </button>
           </div>
           <div className="field" style={{ marginTop: 14, maxWidth: 320 }}>
             <label>Speed — {newSpeed.toFixed(2)}×</label>
-            <input
-              type="range"
-              min={SPEED.min}
-              max={SPEED.max}
-              step={SPEED.step}
-              value={newSpeed}
-              onChange={(e) => setNewSpeed(Number(e.target.value))}
-            />
+            <input type="range" min={SPEED.min} max={SPEED.max} step={SPEED.step} value={newSpeed} onChange={(e) => setNewSpeed(Number(e.target.value))} />
           </div>
           {voiceError && <div className="err">{voiceError}</div>}
           <CreateVoice
@@ -296,6 +437,12 @@ export default function JobView({ id }) {
           ))}
         </div>
       </details>
+
+      <div className="dangerzone">
+        <button type="button" className="linkbtn danger" onClick={remove}>
+          Delete this video
+        </button>
+      </div>
     </div>
   );
 }
