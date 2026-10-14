@@ -17,7 +17,7 @@ The looping video on the [launch site](https://latent-spaces.github.io/brag/) wa
 
 ### brag studio — a UI for brag-docs and brag-idea
 
-[`studio/`](studio/) is a local web app for `/brag-docs` and `/brag-idea`: **upload a document or describe an idea, watch it become a video, and browse a searchable history** of everything you've made. It runs the `brag-docs` agent headlessly on your machine and streams progress into the page. You can also clone your own voice (fully locally, via [Voicebox](https://github.com/jamiepine/voicebox)) and narrate videos with it. Run it with `cd studio && npm install && npm run dev` (needs the skills, FFmpeg, and Hyperframes installed locally — see [`studio/README.md`](studio/README.md)).
+[`studio/`](studio/) is **brag studio**, a Mac app (and local web app) for `/brag-docs` and `/brag-idea`: upload a document or describe an idea, watch it become a video, **revise it in plain English**, and keep every version in a searchable library. Videos are made by a Claude agent on your machine (Claude Agent SDK) with a safety policy on every tool call; a Setup page checks and fixes everything it needs, and you can narrate with built-in voices or your own cloned voice (fully local, via [Voicebox](https://github.com/jamiepine/voicebox)). Install with `cd studio && npm install && npm run app:install` — see [`studio/README.md`](studio/README.md).
 
 `/brag-strategy` keeps a persistent `brag-marketing/` workspace (a product profile, an asset inventory, a content plan, and a reusable asset repo) so the program compounds across runs. See [`skills/brag-strategy/SKILL.md`](skills/brag-strategy/SKILL.md).
 

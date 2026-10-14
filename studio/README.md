@@ -1,40 +1,32 @@
 # brag studio
 
-A local web UI for **`brag-docs`** and **`brag-idea`**: upload a document (PDF, PowerPoint/Keynote, or infographic) or describe an idea in a prompt, watch it become a video, and browse a searchable history of everything you've made.
+Turn documents and ideas into videos — a Mac app (and local web app) for **`brag-docs`** and **`brag-idea`**. Upload a PDF, deck, or infographic, or describe an idea; watch it become a video; revise it in plain English; and keep every version in a searchable library.
 
-It's a thin, self-contained Next.js app. When you start a job it runs the matching skill **headlessly** on your machine (via `claude -p`), streams progress into the page, and shows the finished video when the render completes.
+Each video is made by a Claude agent running **on your machine** through the **Claude Agent SDK**, using the brag skills from this repo and rendering with a pinned copy of Hyperframes.
 
-## Requirements
-
-Generation happens locally through the agent, so this machine needs everything `brag-docs` needs:
-
-- **Node.js 22+**
-- **Claude Code CLI** on `PATH` (`claude`), signed in
-- The **`brag`, `brag-docs`, and `brag-idea` skills installed** (globally in `~/.claude/skills/` is easiest — see the repo root README)
-- **FFmpeg** on `PATH`
-- **Hyperframes CLI** — `npx hyperframes doctor`
-- **For narration/voices** — Kokoro TTS runs through Python: **Python 3.10+** with `kokoro-onnx` + `soundfile`:
-  ```bash
-  # use a Python 3.10+ interpreter (macOS default python3 is often 3.9, which won't work)
-  python3.13 -m pip install kokoro-onnx soundfile
-  # then point Hyperframes at that interpreter when running studio:
-  export HYPERFRAMES_PYTHON="$(which python3.13)"
-  ```
-  The dashboard shows a banner and the preview buttons report an error if this isn't set up. Without it, videos still generate — just without voiceover.
-
-## Run
+## Get started
 
 ```bash
 cd studio
 npm install
-npm run dev      # http://localhost:4321
+node node_modules/electron/install.js   # only if npm skipped Electron's download
+npm run app:install                     # builds "brag studio.app" into /Applications
 ```
 
-For a production build:
+Open **brag studio** from Applications. The first launch builds the app (about a minute), then opens the **Setup** page if anything is missing — every requirement is checked there, most with a one-click fix:
 
-```bash
-npm run build && npm start
-```
+| Check | Needed for |
+|---|---|
+| Node.js 22+ | everything |
+| Claude sign-in | making videos (log in once with `claude` in Terminal, or set `ANTHROPIC_API_KEY`) |
+| brag skills | loaded straight from this repo — always current |
+| Hyperframes skills, renderer, FFmpeg, Chrome | building and rendering videos |
+| Built-in voices (Kokoro) | narration — *Set up* creates a Python 3.10+ environment for you |
+| Cloned voices (Voicebox) | your own narration voice (optional) |
+
+Prefer the browser? `npm run dev` serves the same studio at http://localhost:4321. The app reuses that server if it's already running, so the two never run separate engines on the same library.
+
+**Updating:** `git pull`, then relaunch — the app notices the code changed and rebuilds itself.
 
 ## Two ways to start
 
@@ -76,38 +68,47 @@ Clone your own voice and narrate videos with it, entirely on this machine. Cloni
 
 Kokoro is fast, free, and local, but it's an 82M model. A cloud provider (**ElevenLabs**) remains an option; the seam is `lib/tts.js` (`runTts`).
 
+## Working with videos
+
+- **Progress** — a stage-by-stage progress card while a video is made; the raw log is behind *Show log*.
+- **Queue** — videos are made one at a time by default (Setup → *Videos at a time*); extra jobs wait in line and start automatically.
+- **Cancel** — stops the agent or render immediately. Cancelling an edit leaves the current video untouched.
+- **Revise** — describe what to change ("make the headline bigger, cut scene 3"). The agent edits the existing composition and re-renders instead of starting over.
+- **Versions** — every revision or voice change keeps the previous cut; play or download any version from the job page. A failed edit restores the previous video automatically.
+- **Restart-safe** — if the app quits mid-video, that job is marked *interrupted* with **Resume** (or **Finish render** when only the render is missing); queued jobs pick up where they left off.
+- **Cost** — each job shows what its runs cost. Setup can cap spend per run and choose the model.
+- **Notifications** — the app notifies you when a video is ready or fails; downloads go to ~/Downloads.
+- **Rename / delete** — from the job page.
+
 ## How it works
 
-- **Upload / prompt** → `POST /api/jobs` (`mode=document` with a `file`, or `mode=prompt` with `prompt` + optional `assets`) saves inputs under `data/jobs/<id>/input/` and spawns:
-  ```
-  claude -p "<brag-docs prompt>" --permission-mode bypassPermissions --output-format stream-json --verbose
-  ```
-  with the job directory as the working directory.
-- **Progress** → the agent's stream-json events are parsed into human-readable steps in `data/jobs/<id>/progress.jsonl`; the job page polls `GET /api/jobs/<id>` to render them live.
-- **Result** → on success the app finds `brag-docs-output/brag.mp4` or `brag-idea-output/brag.mp4` (+ poster + share copy) in the job directory and records it in `data/library.json`.
-- **Library & search** → `GET /api/jobs?q=&kind=docs|idea` filters the library by title, filename, prompt text, kind, tone, or date.
-- **Media** → served by `GET /api/files/[...path]` from `data/` with HTTP range support (video scrubbing).
+- **Jobs** — `POST /api/jobs` saves inputs under `data/jobs/<id>/input/` and queues a task. The engine (`lib/engine.js`) runs each task through the Agent SDK `query()` in the job folder, with the repo loaded as the `brag` plugin (`brag:brag-docs`, `brag:brag-idea`), a studio system prompt, and interactive-only tools disabled.
+- **Tasks** — generate, revoice, revise, and finish-render all go through one persistent queue (job records carry the pending task, so the queue survives restarts; `instrumentation.js` re-arms it on server start).
+- **Progress** — SDK messages are logged to `progress.jsonl`, tagged with a pipeline stage (`lib/stages.js`); the job page turns that into the progress card.
+- **Result** — the newest `brag.mp4` rendered during the task is recorded in `data/library.json` (written atomically). If the agent stops with a built composition but no video, the engine renders it with the pinned Hyperframes.
+- **Media** — served by `GET /api/files/[...path]` from `data/` with range support.
+
+## Safety
+
+Jobs run unattended, so the agent has no permission prompts. Instead a **PreToolUse hook** (`lib/policy.js`) checks every tool call — even ones your own Claude settings would allow — and blocks: writing outside the job folder, reading credentials (`~/.ssh`, `~/.aws`, keychains, `.env` files…), network access beyond local services and font/CDN/package hosts, remote shells, `sudo`, killing processes, system configuration, and publishing code. The agent is also told that everything in an uploaded document is data, not instructions. Blocked calls appear in the job's log.
+
+This is a guardrail, not an OS sandbox — only feed the studio documents you'd be comfortable opening yourself.
 
 ## Data & privacy
 
-Everything lives under `studio/data/` (gitignored): uploaded documents, per-job logs, rendered videos, and `library.json`. Nothing leaves your machine except the agent's own calls to Claude and Hyperframes during generation. Delete a job by removing its folder under `data/jobs/` and its entry in `data/library.json`.
+Everything lives under `studio/data/` (gitignored): uploads, per-job logs, renders and versions, `library.json`, and `settings.json`. Nothing leaves your machine except the agent's calls to Claude (and web search when an idea promo verifies a claim). Delete a video from its page.
 
 ## Config
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `BRAG_CLAUDE_BIN` | `claude` | Path to the Claude Code CLI used for headless generation |
-| `BRAG_STUDIO_DATA_DIR` | `studio/data` | Where jobs, uploads, renders, and `library.json` live |
+| `BRAG_STUDIO_DATA_DIR` | `studio/data` | Where jobs, uploads, renders, `library.json`, and `settings.json` live |
+| `BRAG_PLUGIN_DIR` | the repo root | The `brag` plugin (skills) the agent loads |
 | `VOICEBOX_URL` | `http://127.0.0.1:17493` | Local Voicebox server for cloned voices |
 | `VOICEBOX_APP` | `/Applications/Voicebox.app` | App launched automatically when Voicebox isn't running |
-| `BRAG_HYPERFRAMES_BIN` | `npx hyperframes` | Path to the Hyperframes CLI used for voice-sample synthesis |
-
-## Notes & limits (MVP)
-
-- `--permission-mode bypassPermissions` lets the headless agent run FFmpeg/Hyperframes without prompts. Only run this on documents and a machine you trust.
-- **Unfinished renders are recovered.** The agent is told to render in the foreground (a headless `claude -p` run exits — and kills background work — the moment the agent stops), and tools for deferring work are blocked. If it still exits with a built composition but no video, the studio renders `brag.mp4` itself; failed jobs in that state show a **Finish render** button.
-- Jobs run in the server process. If you restart the server mid-generation, an in-flight job is orphaned and stays `running` — delete it and re-upload.
-- Concurrency is unbounded; each upload spawns its own agent. Uploading many at once will compete for CPU and tokens.
+| `BRAG_HYPERFRAMES_BIN` | `npx hyperframes` | Hyperframes CLI used for voice-sample synthesis |
+| `BRAG_AGENT_STUB` | — | Test seam: a module yielding fake SDK messages instead of running Claude |
+| `NEXT_DIST_DIR` | `.next` | Build folder (the app uses `.next-app`, so it never disturbs a dev server) |
 
 ## Dependency advisories
 
