@@ -10,6 +10,11 @@ const nextConfig = {
   experimental: {
     // Allow large document uploads through Server Actions / route handlers.
     serverActions: { bodySizeLimit: '100mb' },
+    // instrumentation.js boots the job engine on server start.
+    instrumentationHook: true,
+    // Load these from node_modules at runtime instead of bundling them: the
+    // Agent SDK spawns its own Claude Code process and ships native pieces.
+    serverComponentsExternalPackages: ['@anthropic-ai/claude-agent-sdk', 'hyperframes'],
   },
 };
 

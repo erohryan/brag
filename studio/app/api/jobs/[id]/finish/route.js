@@ -1,5 +1,5 @@
 import { getJob } from '../../../../../lib/store.js';
-import { canFinishRender, isRunning, startFinishRender } from '../../../../../lib/jobs.js';
+import { canFinishRender, isBusy, startFinishRender } from '../../../../../lib/jobs.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(_request, { params }) {
   const rec = getJob(params.id);
   if (!rec) return Response.json({ error: 'not found' }, { status: 404 });
-  if (isRunning(params.id) || rec.status === 'running' || rec.status === 'queued') {
+  if (isBusy(rec)) {
     return Response.json({ error: 'A build is already in progress for this job' }, { status: 409 });
   }
   if (!canFinishRender(rec)) {

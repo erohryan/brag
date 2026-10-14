@@ -1,5 +1,5 @@
 import { getJob } from '../../../../../lib/store.js';
-import { startRevoice, isRunning } from '../../../../../lib/jobs.js';
+import { isBusy, startRevoice } from '../../../../../lib/jobs.js';
 import { clampSpeed } from '../../../../../lib/voices.js';
 import { pickVoice } from '../../../../../lib/voiceCatalog.js';
 
@@ -16,7 +16,7 @@ export async function POST(request, { params }) {
   } catch {
     /* empty body */
   }
-  if (isRunning(params.id) || rec.status === 'queued' || rec.status === 'running') {
+  if (isBusy(rec)) {
     return Response.json({ error: 'A build is already in progress for this job' }, { status: 409 });
   }
 

@@ -55,7 +55,7 @@ function guessStage(e) {
   return null;
 }
 
-const RUN_START = /^(Starting |Rebuilding with voice|Rendering the finished composition)/;
+const RUN_START = /^(Starting |Rebuilding with voice|Revising: |Rendering the finished composition)/;
 const TOOL_LINE = /^[⌘✎👁▶→]/u;
 
 export function computeProgress(job, now = Date.now()) {
@@ -79,6 +79,7 @@ export function computeProgress(job, now = Date.now()) {
 
   let cur = 0;
   if (/^Rebuilding with voice/.test(first)) cur = Math.max(0, idx('voice'));
+  if (/^Revising: /.test(first)) cur = idx('compose');
   if (/^Rendering the finished composition/.test(first)) cur = idx('render');
   const startedAt = run[0]?.t ?? job.startedAt ?? now;
   let enteredAt = startedAt;
@@ -101,7 +102,12 @@ export function computeProgress(job, now = Date.now()) {
     else if (e.kind === 'step' && !TOOL_LINE.test(e.text || '')) activity = e.text;
   }
 
-  const elapsed = Math.max(0, (job.status === 'running' || job.status === 'queued' ? now : run[run.length - 1]?.t ?? now) - startedAt);
+  const live = job.status === 'running' || job.status === 'queued';
+  const stopped = ['failed', 'interrupted', 'cancelled'].includes(job.status);
+  const elapsed = Math.max(0, (live ? now : run[run.length - 1]?.t ?? now) - startedAt);
+  if (job.status === 'queued') {
+    return { pct: 0, stageIndex: 0, stages, label: 'Waiting for another video to finish', activity: '', elapsed: 0 };
+  }
   if (job.status === 'done') {
     return { pct: 100, stageIndex: stages.length, stages, label: 'Video ready', activity, elapsed };
   }
@@ -110,14 +116,15 @@ export function computeProgress(job, now = Date.now()) {
   const base = stages.slice(0, cur).reduce((a, s) => a + s.weight, 0);
   const stage = stages[cur];
   let frac = 0;
-  if (job.status !== 'failed') {
+  if (!stopped) {
     frac =
       stage.key === 'render' && renderPct != null
         ? Math.min(renderPct / 100, 0.98)
         : Math.min(0.85, 1 - Math.exp(-(now - enteredAt) / 1000 / stage.tau));
   }
   const pct = Math.max(1, Math.min(99, Math.round(((base + stage.weight * frac) / total) * 100)));
-  const label = job.status === 'failed' ? `Stopped while ${stage.label.toLowerCase()}` : stage.label;
+  const verb = job.status === 'cancelled' ? 'Cancelled' : job.status === 'interrupted' ? 'Interrupted' : 'Stopped';
+  const label = stopped ? `${verb} while ${stage.label.toLowerCase()}` : stage.label;
   return { pct, stageIndex: cur, stages, label, activity, elapsed };
 }
 

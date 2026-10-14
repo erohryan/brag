@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { listJobs, upsertJob } from '../../../lib/store.js';
-import { startJob } from '../../../lib/jobs.js';
+import { bootEngine, startJob } from '../../../lib/jobs.js';
 import { jobDirFor } from '../../../lib/paths.js';
 import { DEFAULT_VOICE, clampSpeed, voiceById } from '../../../lib/voices.js';
 import { pickVoice } from '../../../lib/voiceCatalog.js';
@@ -20,6 +20,7 @@ function sanitizeName(name) {
 }
 
 export async function GET(request) {
+  bootEngine();
   const params = new URL(request.url).searchParams;
   return Response.json({ jobs: listJobs(params.get('q') || '', params.get('kind') || '') });
 }

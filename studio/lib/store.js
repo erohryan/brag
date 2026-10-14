@@ -14,9 +14,13 @@ function readAll() {
   }
 }
 
+// Atomic: write a temp file then rename, so a crash mid-write can't corrupt
+// the library. (Writes are synchronous, so one server process never interleaves.)
 function writeAll(list) {
   ensureDirs();
-  fs.writeFileSync(LIBRARY_FILE, JSON.stringify(list, null, 2));
+  const tmp = `${LIBRARY_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
+  fs.renameSync(tmp, LIBRARY_FILE);
 }
 
 // Jobs created before kinds existed are document jobs.
@@ -59,4 +63,8 @@ export function upsertJob(rec) {
   else list.push(rec);
   writeAll(list);
   return rec;
+}
+
+export function deleteJobRecord(id) {
+  writeAll(readAll().filter((r) => r.id !== id));
 }
