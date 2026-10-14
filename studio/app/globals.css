@@ -762,3 +762,139 @@ textarea.transcript:focus {
   font-size: 13px;
   margin: -2px 0 10px;
 }
+
+/* ---------- Job progress ---------- */
+.jobprog {
+  margin: 4px 0 22px;
+}
+.jp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.jp-stage {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.jp-meta {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.jp-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.jp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.8s ease;
+}
+.jp-fill.live {
+  background-size: 200% 100%;
+  animation: jp-sheen 2.2s linear infinite;
+  background-image: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+}
+@keyframes jp-sheen {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+.jobprog.failed .jp-fill {
+  background: var(--bad);
+  animation: none;
+}
+.jp-steps {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+}
+.jp-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+}
+.jp-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+.jp-steps li.done {
+  color: var(--text);
+}
+.jp-steps li.done .jp-dot {
+  background: var(--good);
+  border-color: var(--good);
+  color: #08140f;
+}
+.jp-steps li.active {
+  color: var(--text);
+  font-weight: 700;
+}
+.jp-steps li.active .jp-dot {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 92, 57, 0.25);
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.jp-steps li.failed {
+  color: var(--bad);
+  font-weight: 700;
+}
+.jp-steps li.failed .jp-dot {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #1a0808;
+}
+.jp-activity {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jp-activity::before {
+  content: '› ';
+  color: var(--accent);
+  font-weight: 700;
+}
+.logbox {
+  margin-top: 26px;
+}
+.logbox summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  user-select: none;
+}
+.logbox summary:hover {
+  color: var(--text);
+}

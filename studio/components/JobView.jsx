@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { previewVoice } from './voicePreview.js';
 import VoiceSelect from './VoiceSelect.jsx';
+import JobProgress from './JobProgress.jsx';
 import CreateVoice from './CreateVoice.jsx';
 import useVoices from './useVoices.js';
 import { SPEED } from '../lib/voices.js';
@@ -180,6 +181,8 @@ export default function JobView({ id }) {
         </details>
       )}
 
+      {job.status !== 'done' && <JobProgress job={job} />}
+
       {job.status === 'done' && job.video && (
         <>
           <div className="videowrap">
@@ -227,8 +230,8 @@ export default function JobView({ id }) {
             </>
           ) : (
             <p className="hint" style={{ color: 'var(--muted)' }}>
-              See the log below for details. Common causes: the brag-docs skill or
-              Hyperframes CLI isn&apos;t installed/authed on this machine.
+              Open <strong>Show log</strong> below for details. Common causes: the brag skills or
+              the Hyperframes CLI aren&apos;t installed or signed in on this machine.
             </p>
           )}
         </div>
@@ -280,15 +283,19 @@ export default function JobView({ id }) {
         </div>
       )}
 
-      <h2>{running ? 'Progress' : 'Log'}</h2>
-      <div className="progress" ref={logRef}>
-        {progress.length === 0 && <div className="row">Waiting for the agent to start…</div>}
-        {progress.map((p, i) => (
-          <div className={`row ${p.kind || ''}`} key={i}>
-            {p.text}
-          </div>
-        ))}
-      </div>
+      <details className="logbox">
+        <summary>
+          Show log <span className="hint">({progress.length} entries)</span>
+        </summary>
+        <div className="progress" ref={logRef}>
+          {progress.length === 0 && <div className="row">Waiting for the agent to start…</div>}
+          {progress.map((p, i) => (
+            <div className={`row ${p.kind || ''}`} key={i}>
+              {p.text}
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { DATA_DIR, jobDirFor } from './paths.js';
 import { getJob, upsertJob } from './store.js';
 import { voiceById } from './voices.js';
 import { isVoiceboxId } from './voicebox.mjs';
+import { laterStage, stageOfTool } from './stages.js';
 
 // Our TTS wrapper: same interface as `hyperframes tts`, plus cloned Voicebox voices.
 const TTS_CLI = path.join(process.cwd(), 'bin', 'tts.mjs');
@@ -16,11 +17,12 @@ export function isRunning(id) {
   return running.has(id);
 }
 
-function appendProgress(dir, kind, text) {
+// `extra` carries structured fields for the progress bar ({ stage, pct }).
+function appendProgress(dir, kind, text, extra) {
   try {
     fs.appendFileSync(
       path.join(dir, 'progress.jsonl'),
-      JSON.stringify({ t: Date.now(), kind, text }) + '\n',
+      JSON.stringify({ t: Date.now(), kind, text, ...extra }) + '\n',
     );
   } catch {
     /* progress is best-effort */
@@ -151,17 +153,33 @@ function buildRevoicePrompt(rec, voiceId, speed) {
   ].join('\n');
 }
 
+// Paths relative to the job folder, so log lines show what matters.
+function shortPath(p) {
+  const s = String(p || '');
+  const m = /\/jobs\/[^/]+\/(.*)$/.exec(s);
+  return m ? m[1] : s.replace(/^\/Users\/[^/]+\//, '~/');
+}
+
+function shortCmd(cmd) {
+  return String(cmd || '')
+    .split('\n')[0]
+    .replace(/^\s*cd\s+\S+\s*(&&|;)\s*/, '')
+    .replace(/\/Users\/[^\s'"]*\/jobs\/[^/\s'"]+\//g, '')
+    .replace(/\/Users\/[^/\s'"]+\//g, '~/')
+    .slice(0, 110);
+}
+
 function toolLabel(c) {
   const input = c.input || {};
   switch (c.name) {
     case 'Bash':
-      return '⌘ ' + String(input.command || '').split('\n')[0].slice(0, 80);
+      return '⌘ ' + shortCmd(input.command);
     case 'Write':
-      return '✎ write ' + (input.file_path || '');
+      return '✎ write ' + shortPath(input.file_path);
     case 'Edit':
-      return '✎ edit ' + (input.file_path || '');
+      return '✎ edit ' + shortPath(input.file_path);
     case 'Read':
-      return '👁 read ' + (input.file_path || '');
+      return '👁 read ' + shortPath(input.file_path);
     case 'Skill':
       return '▶ skill: ' + (input.skill || input.command || '');
     default:
@@ -185,12 +203,16 @@ function deriveProgress(line) {
     case 'assistant': {
       const parts = ev.message?.content || [];
       const bits = [];
+      let stage = null;
       for (const c of parts) {
         if (c.type === 'text' && c.text?.trim()) bits.push(c.text.trim());
-        else if (c.type === 'tool_use') bits.push(toolLabel(c));
+        else if (c.type === 'tool_use') {
+          bits.push(toolLabel(c));
+          stage = laterStage(stage, stageOfTool(c.name, c.input));
+        }
       }
       const text = bits.join('  ·  ').slice(0, 260);
-      return text ? { kind: 'step', text } : null;
+      return text ? { kind: 'step', text, ...(stage ? { stage } : {}) } : null;
     }
     case 'result':
       return ev.is_error
@@ -316,7 +338,7 @@ export function startFinishRender(rec) {
   const mp4 = path.join(outDir, 'brag.mp4');
   const cur = getJob(rec.id) || rec;
   upsertJob({ ...cur, status: 'running', error: undefined });
-  appendProgress(dir, 'system', 'Rendering the finished composition (high quality)…');
+  appendProgress(dir, 'system', 'Rendering the finished composition (high quality)…', { stage: 'render' });
 
   const child = spawn('npx', ['--yes', 'hyperframes', 'render', '--quality', 'high', '--output', mp4], {
     cwd: path.join(outDir, 'composition'),
@@ -338,7 +360,7 @@ export function startFinishRender(rec) {
       const pct = Number(m[1]);
       if (pct >= lastPct + 10 || (pct === 100 && lastPct !== 100)) {
         lastPct = pct;
-        appendProgress(dir, 'step', `Rendering… ${pct}%`);
+        appendProgress(dir, 'step', `Rendering… ${pct}%`, { stage: 'render', pct });
       }
     }
   };
@@ -434,7 +456,7 @@ function runAgent(rec, prompt, startMessage) {
       buf = buf.slice(idx + 1);
       if (!line.trim()) continue;
       const p = deriveProgress(line);
-      if (p) appendProgress(dir, p.kind, p.text);
+      if (p) appendProgress(dir, p.kind, p.text, p.stage ? { stage: p.stage } : undefined);
     }
   });
 
