@@ -11,7 +11,7 @@ import { DATA_DIR } from './paths.js';
 import { HYPERFRAMES_BIN, PLUGIN_DIR } from './engine.js';
 import { checkTts } from './tts.js';
 import { getSettings, saveSettings } from './settings.js';
-import { VOICEBOX_URL, ensureVoicebox, voiceboxHealth } from './voicebox.mjs';
+import { VOICEBOX_URL, ensureVoicebox, queueStalled, restartVoicebox, voiceboxHealth } from './voicebox.mjs';
 
 const G = (globalThis.__bragDoctor ??= { cache: {}, fixes: {} });
 const VOICEBOX_MODEL = 'qwen-tts-1.7B';
@@ -141,8 +141,11 @@ export async function runChecks({ quick = false } = {}) {
     } catch {
       /* ignore */
     }
+    const stuck = model?.downloaded && (await queueStalled());
     checks.push(
-      model?.downloaded
+      stuck
+        ? check('voicebox', 'Cloned voices (Voicebox)', 'fail', 'Voicebox is stuck on a clip and everything behind it is waiting. Restarting it clears the jam.', { fix: 'restart-voicebox', fixLabel: 'Restart Voicebox' })
+        : model?.downloaded
         ? check('voicebox', 'Cloned voices (Voicebox)', 'ok', `Running · ${VOICEBOX_MODEL} ready`)
         : check('voicebox', 'Cloned voices (Voicebox)', 'warn', `Running, but the ${VOICEBOX_MODEL} voice model (~4.3 GB) isn't downloaded.`, { fix: 'voicebox-model', fixLabel: 'Download model', optional: true }),
     );
@@ -205,6 +208,11 @@ const FIXES = {
     log('Starting Voicebox…');
     await ensureVoicebox();
     log('Voicebox is running.');
+  },
+  async 'restart-voicebox'(log) {
+    log('Restarting Voicebox…');
+    await restartVoicebox('setup page', { force: true });
+    log('Voicebox restarted.');
   },
   async 'voicebox-model'(log) {
     await ensureVoicebox();

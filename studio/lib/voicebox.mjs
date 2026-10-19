@@ -146,35 +146,124 @@ export async function createClonedVoice({ name, language = 'en', wavPath, refere
   return profile;
 }
 
+// ---- Stall recovery ------------------------------------------------------
+// Voicebox makes one clip at a time. Its generation worker can hang (seen after
+// days of uptime): the clip sits in "generating" forever and every later clip
+// queues behind it. A restart clears it, so we detect that and restart.
+
+const RESTART_LOCK = path.join(os.tmpdir(), 'brag-voicebox-restart.json');
+const PENDING = ['generating', 'loading_model', 'pending', 'queued'];
+const utcMs = (s) => Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s}Z`);
+
+function lastRestartAt() {
+  try {
+    return JSON.parse(fs.readFileSync(RESTART_LOCK, 'utf8')).at || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// How long one clip may go without finishing before we call it stuck. Generous:
+// a cold model load takes ~45s and long passages a minute or two.
+function stallLimitMs(text) {
+  return Number(process.env.BRAG_VB_STALL_MS) || Math.max(4 * 60000, 90000 + String(text).length * 80);
+}
+
+// Is an older clip stuck in the queue (blocking everything after it)?
+export async function queueStalled(maxAgeMs = 5 * 60000) {
+  try {
+    const h = await (await vb('/history?limit=20')).json();
+    return (h.items || h).some((x) => PENDING.includes(x.status) && Date.now() - utcMs(x.created_at) > maxAgeMs);
+  } catch {
+    return false;
+  }
+}
+
+// Restart Voicebox. When several narration commands notice at once, only the
+// first restarts; the rest just wait for it to come back.
+export async function restartVoicebox(reason = '', { force = false } = {}) {
+  if (!force && Date.now() - lastRestartAt() < 3 * 60000) {
+    await ensureVoicebox();
+    return false;
+  }
+  fs.writeFileSync(RESTART_LOCK, JSON.stringify({ at: Date.now(), reason }));
+  const procs = `${path.basename(APP_PATH)}/Contents/MacOS`;
+  const appName = path.basename(APP_PATH, '.app');
+  if (os.platform() === 'darwin') await run('osascript', ['-e', `quit app "${appName}"`]).catch(() => {});
+  await sleep(3000);
+  await run('pkill', ['-f', procs]).catch(() => {});
+  await sleep(2000);
+  await run('pkill', ['-9', '-f', procs]).catch(() => {});
+  for (let i = 0; i < 10 && (await voiceboxHealth()).running; i++) await sleep(1000);
+  await ensureVoicebox();
+  return true;
+}
+
+class Stalled extends Error {}
+
+async function waitForClip(genId, { submittedAt, stallMs, until, onStatus }) {
+  for (;;) {
+    let h;
+    try {
+      h = await (await vb(`/history/${genId}`)).json();
+    } catch {
+      // Voicebox went away (likely restarted by a parallel narration command).
+      await ensureVoicebox();
+      continue;
+    }
+    onStatus?.(h.status);
+    if (h.status === 'completed') return;
+    if (['failed', 'error', 'cancelled'].includes(h.status)) {
+      // A restart since we submitted marks in-flight clips failed: resubmit.
+      if (lastRestartAt() > submittedAt) throw new Stalled('restarted');
+      throw new Error(`Voicebox generation ${h.status}${h.error ? `: ${h.error}` : ''}`);
+    }
+    if (Date.now() - submittedAt > stallMs) throw new Stalled('stalled');
+    if (Date.now() > until) throw new Error('Voicebox generation timed out.');
+    await sleep(1000);
+  }
+}
+
 // Speak `text` in a Voicebox voice and write a WAV to `output`.
 // v0.5 has no speed control, so speed is applied afterwards with ffmpeg atempo.
 export async function synthesize({ profileId, text, output, speed = 1, timeoutMs = 15 * 60 * 1000, onStatus }) {
+  if (await queueStalled()) {
+    onStatus?.('Voicebox looks stuck — restarting it');
+    await restartVoicebox('stale clip in queue');
+  }
   const profile = await getProfile(profileId);
   if (!profile) throw new Error(`Voicebox voice ${profileId} no longer exists.`);
   const engine = profile.default_engine || profile.preset_engine || undefined;
+  const submit = async () => {
+    const submittedAt = Date.now();
+    const g = await (
+      await vb('/generate', {
+        method: 'POST',
+        json: { profile_id: profileId, text, language: profile.language || 'en', ...(engine ? { engine } : {}) },
+        timeout: 120000,
+      })
+    ).json();
+    return { ...g, submittedAt };
+  };
 
-  const gen = await (
-    await vb('/generate', {
-      method: 'POST',
-      json: { profile_id: profileId, text, language: profile.language || 'en', ...(engine ? { engine } : {}) },
-      timeout: 120000,
-    })
-  ).json();
-
-  // /history is the source of truth for status; the first load of the model
-  // can take a while, later generations are quick.
   const until = Date.now() + timeoutMs;
-  for (;;) {
-    const h = await (await vb(`/history/${gen.id}`)).json();
-    onStatus?.(h.status);
-    if (h.status === 'completed') break;
-    if (['failed', 'error', 'cancelled'].includes(h.status)) {
-      throw new Error(`Voicebox generation ${h.status}${h.error ? `: ${h.error}` : ''}`);
+  const stallMs = stallLimitMs(text);
+  let gen = await submit();
+  try {
+    await waitForClip(gen.id, { submittedAt: gen.submittedAt, stallMs, until, onStatus });
+  } catch (err) {
+    if (!(err instanceof Stalled)) throw err;
+    if (err.message === 'stalled') {
+      onStatus?.('Voicebox stalled — restarting it and retrying');
+      await restartVoicebox('clip stalled');
     }
-    if (Date.now() > until) {
-      throw new Error('Voicebox generation timed out — it may be stuck. Restart the Voicebox app and try again.');
+    gen = await submit();
+    try {
+      await waitForClip(gen.id, { submittedAt: gen.submittedAt, stallMs, until, onStatus });
+    } catch (err2) {
+      if (err2 instanceof Stalled) throw new Error('Voicebox stalled again after a restart. Open the Voicebox app to check it, then try again.');
+      throw err2;
     }
-    await sleep(1000);
   }
 
   const audio = Buffer.from(await (await vb(`/audio/${gen.id}`, { timeout: 120000 })).arrayBuffer());
